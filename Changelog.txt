@@ -1,4 +1,4 @@
-__ New in 4.5 - By Ionlydps and Chairface __
+__ New in 5.0.1 - By Ionlydps and Chairface __
 * Merged ItemRack and ItemRackOptions into a single integrated addon
 * Options UI now loads immediately (no LoadOnDemand delay)
 * Fixed texture paths for merged addon structure

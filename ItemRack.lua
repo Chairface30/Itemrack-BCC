@@ -658,10 +658,23 @@ function ItemRack.ChangeSpecForSet(targetSpec, setname)
 		return
 	end
 	
+	-- Normalize/validate targetSpec
+	targetSpec = tonumber(targetSpec)
+	if not targetSpec or targetSpec <= 0 then
+		return
+	end
+
+	-- Only swap specs if we're not already in the requested spec
+	local currentSpec = ItemRack.GetActiveSpec()
+	if currentSpec and tonumber(currentSpec) == targetSpec then
+		return
+	end
+	
 	-- Change to the target spec
 	ItemRack.Print("Switching to spec "..targetSpec.." for set \""..tostring(setname).."\"")
 	ItemRack.SetActiveSpec(targetSpec)
 end
+
 
 function ItemRack.OnSetBagItem(tooltip, bag, slot)
 	ItemRack.ListSetsHavingItem(tooltip, ItemRack.GetID(bag, slot), true)

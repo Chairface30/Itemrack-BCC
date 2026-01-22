@@ -1,6 +1,6 @@
 ## Interface: 20505
 ## Title: ItemRack - TBC Classic (Complete)
-## Version: 5.0.3
+## Version: 5.0.4
 ## Author: Gello - Updated for Classic by Rottenbeer,Roadblock - Merged edition by Ionlydps, Chairface and Cexxal
 ## Notes: Equipment set manager for quickly swapping gear (includes Options module)
 ## SavedVariables: ItemRackSettings, ItemRackItems, ItemRackEvents

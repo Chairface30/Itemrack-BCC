@@ -1,3 +1,8 @@
+__ New in 5.0.4 - By Cexal __
+* Fixed Slot Keybinds - On-Use items now work correctly with slot keybinds
+* Changed spec change warning in battlegrounds to show failure reason being Battlegrounds and not PvP
+* Added logic to remove "Swapping to spec [spec 1/2]" notifications if already in the correct spec
+
 __ New in 5.0.3 - By Chairface __
 * Removed arrow texture on itemslots when disabled.
 
@@ -508,3 +513,4 @@ __ New in 2.25 __
 1.2, 9/3/05, added: options to hide tooltips or make them smaller, notify when items ready, /itemrack scale as alternative to set scale, changed: spacers to trinkets when TrinketMenu Clicks checked, OnUpdates given ItemRack_InvFrame parent, bugs fixed: mod hides when UI hidden, hunter FD won't block item swaps
 1.1, 9/2/05, added: option to swap to empty slots, option to reverse menu growth, left/right-click trinkets options added, changed: "Soulbound Only" renamed to "Hide Tradables", some slots ignore soulbound flag now: trinket, ammo, shirt, tabard. quest and conjured items now show with 'Soulbound Only' on. bug fixed: items queued while dead will swap on res before release
 1.0, 8/31/05, initial release
+

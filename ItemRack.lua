@@ -654,7 +654,7 @@ function ItemRack.ChangeSpecForSet(targetSpec, setname)
 	-- Can't change specs in arena or battleground
 	local inInstance, instanceType = IsInInstance()
 	if inInstance and (instanceType == "pvp" or instanceType == "arena") then
-		ItemRack.Print("Specialization cannot be changed in PvP. Gear will be equipped, but spec change skipped.")
+		ItemRack.Print("Specialization cannot be changed in BG/Arena. Gear will be equipped, but spec change skipped.")
 		return
 	end
 	

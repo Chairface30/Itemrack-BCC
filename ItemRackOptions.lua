@@ -1120,20 +1120,28 @@ function ItemRackOpt.BindFrameOnKeyDown(self,key)
 end
 
 function ItemRackOpt.SetKeyBinding()
-	if not InCombatLockdown() and ItemRackOpt.Binding.keyPressed then
+	if InCombatLockdown() then
+		ItemRack.Print("Sorry, you can't bind keys while in combat.")
+		ItemRackOpt.ResetBindFrame()
+		ItemRackOptBindFrame:Hide()
+		return
+	end
+
+	if ItemRackOpt.Binding and ItemRackOpt.Binding.keyPressed and ItemRackOpt.Binding.buttonName then
 		ItemRackOpt.UnbindKey()
-		SetBindingClick(ItemRackOpt.Binding.keyPressed,ItemRackOpt.Binding.buttonName)
-		-- Save the binding immediately
+
+		SetBindingClick(ItemRackOpt.Binding.keyPressed, ItemRackOpt.Binding.buttonName, "LeftButton")
+
 		local bindingSet = GetCurrentBindingSet()
 		if bindingSet then
 			SaveBindings(bindingSet)
 		end
-	else
-		ItemRack.Print("Sorry, you can't bind keys while in combat.")
 	end
+
 	ItemRackOpt.ResetBindFrame()
 	ItemRackOptBindFrame:Hide()
 end
+
 
 function ItemRackOpt.ResetBindFrame()
 	ItemRackOptBindFrame:EnableKeyboard(true)
@@ -1143,16 +1151,26 @@ function ItemRackOpt.ResetBindFrame()
 end
 
 function ItemRackOpt.UnbindKey()
-	if not InCombatLockdown() and ItemRackOpt.Binding.buttonName then
-		local action = "CLICK "..ItemRackOpt.Binding.buttonName..":LeftButton"
+	if InCombatLockdown() or not ItemRackOpt.Binding.buttonName then
+		return
+	end
+
+	local actions = {
+		"CLICK "..ItemRackOpt.Binding.buttonName..":LeftButton",
+		"CLICK "..ItemRackOpt.Binding.buttonName, -- legacy/implicit form
+	}
+
+	for _, action in ipairs(actions) do
 		while GetBindingKey(action) do
 			SetBinding(GetBindingKey(action))
 		end
 	end
+
 	if ItemRackOpt.prevFrame==ItemRackOptSubFrame6 then
 		ItemRackOpt.prevFrame = nil
 	end
 end
+
 
 function ItemRackOpt.ReconcileSetBindings()
 	local buttonName,key
@@ -1215,9 +1233,9 @@ function ItemRackOpt.SlotMarquee()
 end
 
 function ItemRackOpt.BindSlot(slot)
-	ItemRackOpt.Binding = { type="Slot", name=ItemRack.SlotInfo[slot].real, buttonName="ItemRackButton"..slot }
-	ItemRackOpt.Binding.button = _G[ItemRackOpt.Binding.buttonName]
-	ItemRackOptBindFrame:Show()	
+    ItemRackOpt.Binding = { type="Slot", name=ItemRack.SlotInfo[slot].real, buttonName="ItemRackUseButton"..slot }
+    ItemRackOpt.Binding.button = _G[ItemRackOpt.Binding.buttonName]
+    ItemRackOptBindFrame:Show()
 end
 
 --[[ Auto queues ]]

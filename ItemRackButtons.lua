@@ -47,15 +47,40 @@ function ItemRack.InitButtons()
 			button:SetAttribute("alt-slot*",ATTRIBUTE_NOOP)
 		end
 		button:RegisterForDrag("LeftButton","RightButton")
-		button:RegisterForClicks("LeftButtonUp","RightButtonUp")
+		button:RegisterForClicks("AnyDown","AnyUp")
 --		button:SetAttribute("alt-slot*",ATTRIBUTE_NOOP)
 --		button:SetAttribute("shift-slot*",ATTRIBUTE_NOOP)
 		ItemRack.MenuMouseoverFrames["ItemRackButton"..i]=1
-
+		
 		if ItemRack.MasqueGroups and ItemRack.MasqueGroups[1] then
 			ItemRack.MasqueGroups[1]:AddButton(button)
 		end
 	end
+
+    ItemRack.UseButtons = ItemRack.UseButtons or {}
+
+    for i=0,19 do
+        local name = "ItemRackUseButton"..i
+        local b = _G[name]
+
+        if not b then
+            b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
+        end
+
+        b:RegisterForClicks("AnyDown", "AnyUp")
+        b:SetAttribute("type", "item")
+		b:SetAttribute("slot", i)
+		b:SetAttribute("item", nil)
+        b:SetSize(1, 1)
+        b:ClearAllPoints()
+        b:SetPoint("TOPLEFT", UIParent, "TOPLEFT", -2000, 2000)
+        b:SetAlpha(0)
+        b:Show()
+
+        ItemRack.UseButtons[i] = b
+    end
+
+
 
 	ItemRack.CreateTimer("ButtonsDocking",ItemRack.ButtonsDocking,.2,1) -- (repeat) on while buttons docking
 	ItemRack.CreateTimer("MenuDocking",ItemRack.MenuDocking,.2,1) -- (repeat) on while menu docking

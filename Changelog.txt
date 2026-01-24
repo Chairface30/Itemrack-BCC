@@ -1,3 +1,20 @@
+__ New in 5.0.5 - By Chairface __
+* Fixed "Lock Buttons" checkbox not working - settings now properly persist
+* Fixed "Enable Events" checkbox not working - events now toggle correctly
+* Fixed "Enable Auto Queues" checkbox not working - queues now toggle correctly
+* Fixed "Button Spacing", "Transparency", "Button Scale", and "Menu Scale" options
+* Fixed "Set Menu Wrap" checkbox and slider not working - menu now wraps correctly
+* Fixed conflict with Macro Toolkit addon causing errors on load
+* Fixed event-triggered set changes not properly restoring previous set on event end
+* Fixed minimap icon not updating correctly after event set swap completes
+* Fixed race condition where inventory change events could reset minimap icon during swaps
+* Added set swap verification with retry logic for more reliable dual-wield weapon swaps
+
+__ New in 5.0.4 - By Cexal __
+* Fixed Slot Keybinds - On-Use items now work correctly with slot keybinds
+* Changed spec change warning in battlegrounds to show failure reason being Battlegrounds and not PvP
+* Added logic to remove "Swapping to spec [spec 1/2]" notifications if already in the correct spec
+
 __ New in 5.0.3 - By Chairface __
 * Removed arrow texture on itemslots when disabled.
 

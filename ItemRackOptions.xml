@@ -565,7 +565,7 @@
 		<Scripts>
 			<OnMouseDown>
 				local check = getglobal(self:GetName().."CheckButton")
-				if check:IsVisible() and check:IsEnabled()==1 then
+				if check:IsVisible() and check:IsEnabled() then
 					check:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Down")
 				else
 					ItemRackOptFrame:StartMoving()
@@ -573,7 +573,7 @@
 			</OnMouseDown>
 			<OnMouseUp>
 				local check = getglobal(self:GetName().."CheckButton")
-				if check:IsVisible() and check:IsEnabled()==1 then
+				if check:IsVisible() and check:IsEnabled() then
 					check:SetNormalTexture("Interface\\Buttons\\UI-CheckBox-Up")
 				else
 					ItemRackOptFrame:StopMovingOrSizing()
@@ -582,14 +582,14 @@
 			<OnEnter>
 				ItemRackOpt.OptListOnEnter(self,self:GetID())
 				local check = getglobal(self:GetName().."CheckButton")
-				if check:IsVisible() and check:IsEnabled()==1 then
+				if check:IsVisible() and check:IsEnabled() then
 					check:LockHighlight()
 				end
 			</OnEnter>
 			<OnLeave>
 				GameTooltip:Hide()
 				local check = getglobal(self:GetName().."CheckButton")
-				if check:IsVisible() and check:IsEnabled()==1 then
+				if check:IsVisible() and check:IsEnabled() then
 					check:UnlockHighlight()
 				end
 			</OnLeave>

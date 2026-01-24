@@ -114,63 +114,69 @@ end
 local LDB = LibStub("LibDataBroker-1.1")
 local LDBIcon = LibStub("LibDBIcon-1.0")
 
-ItemRackUser = {
-	Sets = {}, -- user's sets
-	ItemsUsed = {}, -- items that have been used (for notify purposes)
-	Hidden = {}, -- items the user chooses to hide in menus
-	Queues = {}, -- item auto queue sorts
-	QueuesEnabled = {}, -- which queues are enabled
-	Locked = "OFF", -- buttons locked
-	EnableEvents = "ON", -- whether all events enabled
-	EnableQueues = "ON", -- whether all auto queues enabled
-	EnablePerSetQueues = "OFF",
-	ButtonSpacing = 4, -- padding between docked buttons
-	Alpha = 1, -- alpha of buttons
-	MainScale = 1, -- scale of the dockable buttons
-	MenuScale = .85, -- scale of the menu in relation to docked buttons
-	SetMenuWrap = "OFF", -- whether user defines when to wrap the menu
-	SetMenuWrapValue = 3, -- when to wrap the menu if user defined
-}
+-- Preserve saved variables, only set defaults if not present
+ItemRackUser = ItemRackUser or {}
+ItemRackUser.Sets = ItemRackUser.Sets or {} -- user's sets
+ItemRackUser.ItemsUsed = ItemRackUser.ItemsUsed or {} -- items that have been used (for notify purposes)
+ItemRackUser.Hidden = ItemRackUser.Hidden or {} -- items the user chooses to hide in menus
+ItemRackUser.Queues = ItemRackUser.Queues or {} -- item auto queue sorts
+ItemRackUser.QueuesEnabled = ItemRackUser.QueuesEnabled or {} -- which queues are enabled
+ItemRackUser.Buttons = ItemRackUser.Buttons or {} -- buttons the user has created
+ItemRackUser.Events = ItemRackUser.Events or {} -- user event settings
+ItemRackUser.Events.Enabled = ItemRackUser.Events.Enabled or {} -- which events are enabled
+ItemRackUser.Events.Set = ItemRackUser.Events.Set or {} -- which sets are assigned to events
+if ItemRackUser.Locked == nil then ItemRackUser.Locked = "OFF" end -- buttons locked
+if ItemRackUser.EnableEvents == nil then ItemRackUser.EnableEvents = "ON" end -- whether all events enabled
+if ItemRackUser.EnableQueues == nil then ItemRackUser.EnableQueues = "ON" end -- whether all auto queues enabled
+if ItemRackUser.EnablePerSetQueues == nil then ItemRackUser.EnablePerSetQueues = "OFF" end
+if ItemRackUser.ButtonSpacing == nil then ItemRackUser.ButtonSpacing = 4 end -- padding between docked buttons
+if ItemRackUser.Alpha == nil then ItemRackUser.Alpha = 1 end -- alpha of buttons
+if ItemRackUser.MainScale == nil then ItemRackUser.MainScale = 1 end -- scale of the dockable buttons
+if ItemRackUser.MenuScale == nil then ItemRackUser.MenuScale = .85 end -- scale of the menu in relation to docked buttons
+if ItemRackUser.SetMenuWrap == nil then ItemRackUser.SetMenuWrap = "OFF" end -- whether user defines when to wrap the menu
+if ItemRackUser.SetMenuWrapValue == nil then ItemRackUser.SetMenuWrapValue = 3 end -- when to wrap the menu if user defined
 
-ItemRackSettings = {
-	MenuOnShift = "OFF", -- open menus on shift only
-	MenuOnRight = "OFF", -- open menus on right-click only
-	HideOOC = "OFF", -- hide dockable buttons when out of combat
-	HidePetBattle = "ON", -- hide dockable buttons during pet battles
-	Notify = "ON", -- notify when a used item comes off cooldown
-	NotifyThirty = "OFF", -- notify when a used item reaches 30 seconds cooldown
-	NotifyChatAlso = "OFF", -- send cooldown notifications to chat also
-	ShowTooltips = "ON", -- show all itemrack tooltips
-	TinyTooltips = "OFF", -- whether to condense tooltips to most important info
-	TooltipFollow = "OFF", -- whether tooltip follows pointer
-	CooldownCount = "OFF", -- whether cooldowns displayed numerically over buttons
-	LargeNumbers = "OFF", -- whether cooldown numbers displayed in large font
-	AllowEmpty = "ON", -- allow empty slot as a choice in menus
-	HideTradables = "OFF", -- allow non-soulbound gear to appear in menu
-	AllowHidden = "ON", -- allow the ability to hide items/sets in the menu with alt+click
-	ShowMinimap = "ON", -- whether to show the minimap button
-	TrinketMenuMode = "OFF", -- whether to merge top/bottom trinkets to one menu (leftclick=top,rightclick=bottom)
-	AnotherOther = "OFF", -- whether to dock the merged trinket menu to bottom trinket
-	EquipToggle = "OFF", -- whether to toggle equipping a set when choosing to equip it
-	ShowHotKeys = "OFF", -- show key bindings on dockable buttons
-	Cooldown90 = "OFF", -- whether to count cooldown in seconds at 90 instead of 60
-	EquipOnSetPick = "OFF", -- whether to equip a set when picked in the set tab of options
-	MinimapTooltip = "ON", -- whether to display the minimap button tooltip to explain clicks
-	CharacterSheetMenus = "ON", -- whether to display slot menus on mouseover of the character sheet
-	DisableAltClick = "OFF", -- whether to disable Alt+click from toggling auto queue (to allow self cast through)
-}
+-- Preserve saved variables, only set defaults if not present
+ItemRackSettings = ItemRackSettings or {}
+ItemRackSettings.minimap = ItemRackSettings.minimap or { hide = false } -- minimap button settings for LibDBIcon
+if ItemRackSettings.MenuOnShift == nil then ItemRackSettings.MenuOnShift = "OFF" end -- open menus on shift only
+if ItemRackSettings.MenuOnRight == nil then ItemRackSettings.MenuOnRight = "OFF" end -- open menus on right-click only
+if ItemRackSettings.HideOOC == nil then ItemRackSettings.HideOOC = "OFF" end -- hide dockable buttons when out of combat
+if ItemRackSettings.HidePetBattle == nil then ItemRackSettings.HidePetBattle = "ON" end -- hide dockable buttons during pet battles
+if ItemRackSettings.Notify == nil then ItemRackSettings.Notify = "ON" end -- notify when a used item comes off cooldown
+if ItemRackSettings.NotifyThirty == nil then ItemRackSettings.NotifyThirty = "OFF" end -- notify when a used item reaches 30 seconds cooldown
+if ItemRackSettings.NotifyChatAlso == nil then ItemRackSettings.NotifyChatAlso = "OFF" end -- send cooldown notifications to chat also
+if ItemRackSettings.ShowSetInTooltip == nil then ItemRackSettings.ShowSetInTooltip = "OFF" end -- show which set an item belongs to in the tooltip
+if ItemRackSettings.ShowTooltips == nil then ItemRackSettings.ShowTooltips = "ON" end -- show all itemrack tooltips
+if ItemRackSettings.TinyTooltips == nil then ItemRackSettings.TinyTooltips = "OFF" end -- whether to condense tooltips to most important info
+if ItemRackSettings.TooltipFollow == nil then ItemRackSettings.TooltipFollow = "OFF" end -- whether tooltip follows pointer
+if ItemRackSettings.CooldownCount == nil then ItemRackSettings.CooldownCount = "OFF" end -- whether cooldowns displayed numerically over buttons
+if ItemRackSettings.LargeNumbers == nil then ItemRackSettings.LargeNumbers = "OFF" end -- whether cooldown numbers displayed in large font
+if ItemRackSettings.AllowEmpty == nil then ItemRackSettings.AllowEmpty = "ON" end -- allow empty slot as a choice in menus
+if ItemRackSettings.HideTradables == nil then ItemRackSettings.HideTradables = "OFF" end -- allow non-soulbound gear to appear in menu
+if ItemRackSettings.AllowHidden == nil then ItemRackSettings.AllowHidden = "ON" end -- allow the ability to hide items/sets in the menu with alt+click
+if ItemRackSettings.ShowMinimap == nil then ItemRackSettings.ShowMinimap = "ON" end -- whether to show the minimap button
+if ItemRackSettings.TrinketMenuMode == nil then ItemRackSettings.TrinketMenuMode = "OFF" end -- whether to merge top/bottom trinkets to one menu (leftclick=top,rightclick=bottom)
+if ItemRackSettings.AnchorOther == nil then ItemRackSettings.AnchorOther = "OFF" end -- whether to dock the merged trinket menu to bottom trinket
+if ItemRackSettings.EquipToggle == nil then ItemRackSettings.EquipToggle = "OFF" end -- whether to toggle equipping a set when choosing to equip it
+if ItemRackSettings.ShowHotKeys == nil then ItemRackSettings.ShowHotKeys = "OFF" end -- show key bindings on dockable buttons
+if ItemRackSettings.Cooldown90 == nil then ItemRackSettings.Cooldown90 = "OFF" end -- whether to count cooldown in seconds at 90 instead of 60
+if ItemRackSettings.EquipOnSetPick == nil then ItemRackSettings.EquipOnSetPick = "OFF" end -- whether to equip a set when picked in the set tab of options
+if ItemRackSettings.MinimapTooltip == nil then ItemRackSettings.MinimapTooltip = "ON" end -- whether to display the minimap button tooltip to explain clicks
+if ItemRackSettings.CharacterSheetMenus == nil then ItemRackSettings.CharacterSheetMenus = "ON" end -- whether to display slot menus on mouseover of the character sheet
+if ItemRackSettings.DisableAltClick == nil then ItemRackSettings.DisableAltClick = "OFF" end -- whether to disable Alt+click from toggling auto queue (to allow self cast through)
 
 -- these are default items with non-standard behavior
 --   keep = 1/nil whether to suspend auto queue while equipped
 --   priority = 1/nil whether to equip as it comes off cooldown even if equipped is off cooldown waiting to be used
 --   delay = time(seconds) after use before swapping out
-ItemRackItems = {
-	["11122"] = { keep=1 }, -- carrot on a stick
-	["13209"] = { keep=1 }, -- seal of the dawn
-	["19812"] = { keep=1 }, -- rune of the dawn
-	["12846"] = { keep=1 }, -- argent dawn commission
-	["25653"] = { keep=1 }, -- riding crop
-}
+-- Preserve saved variables and merge with defaults
+ItemRackItems = ItemRackItems or {}
+if ItemRackItems["11122"] == nil then ItemRackItems["11122"] = { keep=1 } end -- carrot on a stick
+if ItemRackItems["13209"] == nil then ItemRackItems["13209"] = { keep=1 } end -- seal of the dawn
+if ItemRackItems["19812"] == nil then ItemRackItems["19812"] = { keep=1 } end -- rune of the dawn
+if ItemRackItems["12846"] == nil then ItemRackItems["12846"] = { keep=1 } end -- argent dawn commission
+if ItemRackItems["25653"] == nil then ItemRackItems["25653"] = { keep=1 } end -- riding crop
 
 ItemRack.NoTitansGrip = {
 	["Polearms"] = 1, -- reverted in 3.4.1 to block Polearms from Titan's Grip again
@@ -654,7 +660,19 @@ function ItemRack.ChangeSpecForSet(targetSpec, setname)
 	-- Can't change specs in arena or battleground
 	local inInstance, instanceType = IsInInstance()
 	if inInstance and (instanceType == "pvp" or instanceType == "arena") then
-		ItemRack.Print("Specialization cannot be changed in PvP. Gear will be equipped, but spec change skipped.")
+		ItemRack.Print("Specialization cannot be changed in BG/Arena. Gear will be equipped, but spec change skipped.")
+		return
+	end
+	
+	-- Normalize/validate targetSpec
+	targetSpec = tonumber(targetSpec)
+	if not targetSpec or targetSpec <= 0 then
+		return
+	end
+
+	-- Only swap specs if we're not already in the requested spec
+	local currentSpec = ItemRack.GetActiveSpec()
+	if currentSpec and tonumber(currentSpec) == targetSpec then
 		return
 	end
 	
@@ -662,6 +680,7 @@ function ItemRack.ChangeSpecForSet(targetSpec, setname)
 	ItemRack.Print("Switching to spec "..targetSpec.." for set \""..tostring(setname).."\"")
 	ItemRack.SetActiveSpec(targetSpec)
 end
+
 
 function ItemRack.OnSetBagItem(tooltip, bag, slot)
 	ItemRack.ListSetsHavingItem(tooltip, ItemRack.GetID(bag, slot), true)
@@ -800,11 +819,12 @@ function ItemRack.Print(msg)
 	end
 end
 
-function ItemRack.UpdateCurrentSet()
+function ItemRack.UpdateCurrentSet(forceSet)
 	local texture = "Interface\\AddOns\\ItemRack\\ItemRackIcon"
-	local setname = ItemRackUser.CurrentSet or _G.CUSTOM
+	local setname = forceSet or ItemRackUser.CurrentSet or _G.CUSTOM
 	if setname and setname ~= _G.CUSTOM then
-		local equipped = ItemRack.IsSetEquipped(setname)
+		-- If forceSet provided, trust it; otherwise verify
+		local equipped = forceSet or ItemRack.IsSetEquipped(setname)
 		if equipped then
 			texture = ItemRack.GetTextureBySlot(20)
 		else
@@ -815,8 +835,10 @@ function ItemRack.UpdateCurrentSet()
 		ItemRackButton20Icon:SetTexture(texture)
 		ItemRackButton20Name:SetText(setname)
 	end
-	ItemRack.Broker.icon = texture
-	ItemRack.Broker.text = setname
+	if ItemRack.Broker then
+		ItemRack.Broker.icon = texture
+		ItemRack.Broker.text = setname
+	end
 end
 
 --[[ Item info gathering ]]
@@ -1377,7 +1399,7 @@ function ItemRack.BuildMenu(id,menuInclude,masqueGroup)
 		local button, icon
 
 		if ItemRackUser.SetMenuWrap=="ON" then
-			max_cols = ItemRackUser.SetMenuWrapValue
+			max_cols = math.floor(tonumber(ItemRackUser.SetMenuWrapValue) or 3)
 		elseif #(ItemRack.Menu)>24 then
 			max_cols = 5
 		elseif #(ItemRack.Menu)>18 then

@@ -186,10 +186,13 @@ function ItemRack.EquipSet(setname)
 		return
 	end
 
-	if set.old then
-		for i in pairs(set.old) do
-			set.old[i] = nil -- wipe old items
-		end
+	-- Ensure set.old exists to store items we're replacing (for unequip restoration)
+	set.old = set.old or {}
+	for i in pairs(set.old) do
+		set.old[i] = nil -- wipe old items
+	end
+	-- Only save oldset for regular sets, not internal sets (which have oldset set by UnequipSet)
+	if not string.match(setname, "^~") then
 		set.oldset = ItemRackUser.CurrentSet
 	end
 
@@ -355,15 +358,60 @@ end
 
 function ItemRack.EndSetSwap(setname)
 	ItemRack.SetSwapping = nil
+	ItemRack.SwapPending = true -- Flag to prevent UpdateButtons from calling UpdateCurrentSet
 	if setname then
+		-- Verify set is fully equipped; if not, schedule a retry
+		if not string.match(setname,"^~") and ItemRackUser.Sets[setname] then
+			local isEquipped = ItemRack.IsSetEquipped(setname)
+			local isLocked = ItemRack.AnythingLocked()
+			if not isEquipped and not isLocked then
+				-- Set not fully equipped, retry after a short delay
+				local retryCount = ItemRack.SetSwapRetryCount or 0
+				if retryCount < 3 then
+					ItemRack.SetSwapRetryCount = retryCount + 1
+					C_Timer.After(0.3, function()
+						if not ItemRack.IsSetEquipped(setname) then
+							ItemRack.EquipSet(setname)
+						else
+							-- Set is now equipped, finalize
+							ItemRack.SetSwapRetryCount = 0
+							ItemRackUser.CurrentSet = setname
+							ItemRack.UpdateCurrentSet(setname)
+						end
+					end)
+					return
+				end
+				-- Max retries reached, proceed anyway
+				ItemRack.SetSwapRetryCount = 0
+			else
+				ItemRack.SetSwapRetryCount = 0
+			end
+		end
+		
 		if not string.match(setname,"^~") then --do not list internal sets, prefixed with ~
 			ItemRackUser.CurrentSet = setname
-			ItemRack.UpdateCurrentSet()
-		elseif ItemRackUser.Sets[setname].oldset then
-			-- if this is a special set that stored a setname, set current to that setname
-			ItemRackUser.CurrentSet = ItemRackUser.Sets[setname].oldset
-			ItemRackUser.Sets[setname].oldset = nil
-			ItemRack.UpdateCurrentSet()
+			ItemRack.UpdateCurrentSet(setname)
+		else
+			-- Internal set (like ~Unequip) - restore previous set if stored, otherwise refresh
+			local oldset = ItemRackUser.Sets[setname] and ItemRackUser.Sets[setname].oldset
+			if oldset then
+				ItemRackUser.CurrentSet = oldset
+				ItemRackUser.Sets[setname].oldset = nil
+				ItemRack.UpdateCurrentSet(ItemRackUser.CurrentSet)
+			else
+				-- No oldset stored, delay and check what set is now equipped
+				C_Timer.After(0.5, function()
+					ItemRackUser.CurrentSet = nil
+					-- Find if any known set is now equipped
+					for name, data in pairs(ItemRackUser.Sets) do
+						if not string.match(name, "^~") and ItemRack.IsSetEquipped(name) then
+							ItemRackUser.CurrentSet = name
+							break
+						end
+					end
+					ItemRack.UpdateCurrentSet(ItemRackUser.CurrentSet)
+				end)
+			end
 		end
 		if ItemRackOptFrame and ItemRackOptFrame:IsVisible() then
 			ItemRackOpt.ChangeEditingSet()
@@ -371,7 +419,10 @@ function ItemRack.EndSetSwap(setname)
 		
 		ItemRack.UpdateCombatQueue() -- update button gear icon if per set queues is active
 	end
---	ItemRack.Print("End of set swap. CurrentSet: "..tostring(ItemRackUser.CurrentSet))
+	-- Clear SwapPending after a short delay to allow inventory events to settle
+	C_Timer.After(0.5, function()
+		ItemRack.SwapPending = nil
+	end)
 end
 
 -- moves an item from bag,slot to bag,slot (slot is nil for bag=inv)

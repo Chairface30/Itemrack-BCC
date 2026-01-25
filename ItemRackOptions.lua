@@ -778,6 +778,22 @@ end
 
 --[[ Options list ]]
 
+-- Helper to get option value from the correct global table
+-- This ensures we always read from the actual global, not a potentially stale reference
+local function GetOptValue(opt)
+	if not opt or not opt.variable then return nil end
+	-- Check ItemRackUser first for per-character settings
+	if ItemRackUser[opt.variable] ~= nil then
+		return ItemRackUser[opt.variable]
+	end
+	-- Fall back to ItemRackSettings for global settings
+	if ItemRackSettings[opt.variable] ~= nil then
+		return ItemRackSettings[opt.variable]
+	end
+	-- Last resort: use opt.optset reference
+	return opt.optset and opt.optset[opt.variable]
+end
+
 function ItemRackOpt.ListScrollFrameUpdate()
 	-- Guard: OptInfo is created in OnLoad, may not exist yet
 	if not ItemRackOpt.OptInfo then
@@ -818,15 +834,15 @@ function ItemRackOpt.ListScrollFrameUpdate()
 				item = _G["ItemRackOptList"..i.."CheckText"]
 				item:SetWidth(opt.depend and 116 or 128)
 				item:SetText(opt.label)
-				if opt.depend and opt.optset[opt.depend]=="OFF" then
+				if opt.depend and GetOptValue({optset=opt.optset, variable=opt.depend})=="OFF" then
 					item:SetTextColor(.5,.5,.5,1)
 				else
 					item:SetTextColor(1,1,1,1)
 				end
 				item:Show()
 				item = _G["ItemRackOptList"..i.."CheckButton"]
-				item:SetChecked(opt.optset[opt.variable]=="ON")
-				if lock or (opt.depend and opt.optset[opt.depend]=="OFF") then
+				item:SetChecked(GetOptValue(opt)=="ON")
+				if lock or (opt.depend and GetOptValue({optset=opt.optset, variable=opt.depend})=="OFF") then
 					item:Disable()
 				else
 					item:Enable()
@@ -921,10 +937,18 @@ function ItemRackOpt.OptListCheckButtonOnClick(self,override)
 	local check = button:GetChecked() and "ON" or "OFF"
 	local idx = button:GetParent():GetID() + FauxScrollFrame_GetOffset(ItemRackOptListScrollFrame)
 	local opt = ItemRackOpt.OptInfo[idx]
-	if opt and opt.variable then
-		opt.optset[opt.variable] = check
+	if not opt or not opt.variable then
+		return
 	end
-	if opt.variable=="MenuOnRight" then
+	-- Update the value in opt.optset for display consistency
+	opt.optset[opt.variable] = check
+	-- Also write directly to the global tables to ensure persistence
+	if opt.variable == "Locked" or opt.variable == "EnableEvents" or opt.variable == "EnableQueues" or opt.variable == "EnablePerSetQueues" or opt.variable == "SetMenuWrap" then
+		ItemRackUser[opt.variable] = check
+	end
+	if opt.variable=="Locked" then
+		ItemRack.ReflectLock()
+	elseif opt.variable=="MenuOnRight" then
 		ItemRack.ReflectMenuOnRight()
 	elseif opt.variable=="HideOOC" then
 		ItemRack.ReflectHideOOC()
@@ -944,7 +968,8 @@ function ItemRackOpt.OptListCheckButtonOnClick(self,override)
 	elseif opt.variable=="LargeNumbers" then
 		ItemRack.ReflectCooldownFont()
 	elseif opt.variable=="ShowMinimap" then
-		opt.optset["minimap"]["hide"] = check ~= "ON" and true or false
+		ItemRackSettings.minimap = ItemRackSettings.minimap or {}
+		ItemRackSettings.minimap.hide = check ~= "ON" and true or false
 		ItemRack.ShowMinimap()
 	elseif opt.variable=="EnableQueues" or opt.variable=="EnablePerSetQueues" then
 		ItemRack.UpdateCombatQueue()

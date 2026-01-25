@@ -407,7 +407,10 @@ function ItemRack.UpdateButtons()
 			end
 		end
 	end
-	ItemRack.UpdateCurrentSet()
+	-- Only update current set if no swap is in progress (EndSetSwap handles it during swaps)
+	if not ItemRack.SetSwapping and not ItemRack.SwapPending then
+		ItemRack.UpdateCurrentSet()
+	end
 	ItemRack.UpdateButtonCooldowns()
 end
 

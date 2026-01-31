@@ -47,7 +47,7 @@ function ItemRack.InitButtons()
 			button:SetAttribute("alt-slot*",ATTRIBUTE_NOOP)
 		end
 		button:RegisterForDrag("LeftButton","RightButton")
-		button:RegisterForClicks("AnyDown","AnyUp")
+		button:RegisterForClicks("AnyUp")
 --		button:SetAttribute("alt-slot*",ATTRIBUTE_NOOP)
 --		button:SetAttribute("shift-slot*",ATTRIBUTE_NOOP)
 		ItemRack.MenuMouseoverFrames["ItemRackButton"..i]=1

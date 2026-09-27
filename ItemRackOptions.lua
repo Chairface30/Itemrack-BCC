@@ -58,6 +58,24 @@ function ItemRackOpt.InvOnLeave(self)
 	end
 end
 
+
+-- Shrink a label's font until its text fits `width` (a whole Forever name,
+-- "Highley Regarded's Settings", runs past the list's rows at full size),
+-- back to its own size when the text is short again.
+function ItemRackOpt.FitLabel(fontString, width)
+	if not fontString.irBaseFont then
+		local face, size, flags = fontString:GetFont()
+		if not (face and size) then return end
+		fontString.irBaseFont = { face, size, flags }
+	end
+	local face, size, flags = unpack(fontString.irBaseFont)
+	fontString:SetFont(face, size, flags)
+	while size > 8 and (fontString:GetStringWidth() or 0) > width do
+		size = size - 1
+		fontString:SetFont(face, size, flags)
+	end
+end
+
 function ItemRackOpt.OnLoad(self)
 	table.insert(UISpecialFrames,"ItemRackOptFrame")
 	Mixin(ItemRackOptFrame, BackdropTemplateMixin)
@@ -439,26 +457,42 @@ function ItemRackOpt.PopulateInitialIcons()
 	ItemRackOpt.PopulateInvIcons()
 	table.insert(ItemRackOpt.Icons,"Interface\\Icons\\INV_Banner_02")
 	table.insert(ItemRackOpt.Icons,"Interface\\Icons\\INV_Banner_03")
-	if RefreshPlayerSpellIconInfo then
-		RefreshPlayerSpellIconInfo()
-		local numMacros = #GetMacroIcons(MACRO_ICON_FILENAMES)
-		local texture
-		for i=1,numMacros do
-			texture = GetSpellorMacroIconInfo(i)
-			if(type(texture) == "number") then
-				table.insert(ItemRackOpt.Icons,texture)
-			else
-				table.insert(ItemRackOpt.Icons,"Interface\\Icons\\"..texture)
-			end
+	-- The rest of the icons. Clients answer this three different ways, and
+	-- WoW Forever's IconDataProvider is broken (its base list is nil and it
+	-- errors inside Blizzard's own file), so each way is tried in turn,
+	-- inside a pcall, and the first that gives icons is used.
+	local function add(texture)
+		if type(texture) == "number" then
+			table.insert(ItemRackOpt.Icons, texture)
+		elseif type(texture) == "string" and texture ~= "" then
+			table.insert(ItemRackOpt.Icons, texture:find("\\") and texture or "Interface\\Icons\\"..texture)
 		end
-	elseif IconDataProviderMixin then
-		local iconProvider = CreateAndInitFromMixin(IconDataProviderMixin, IconDataProviderExtraType.Spell)
-		if iconProvider then
-			for i=1, iconProvider:GetNumIcons() do
-				table.insert(ItemRackOpt.Icons, iconProvider:GetIconByIndex(i))
+	end
+	local before = #ItemRackOpt.Icons
+	local sources = {
+		function() -- the macro window's own list
+			if not (GetNumMacroIcons and GetMacroIconInfo) then return end
+			for i=1,(GetNumMacroIcons() or 0) do add(GetMacroIconInfo(i)) end
+		end,
+		function() -- older clients
+			if not (RefreshPlayerSpellIconInfo and GetMacroIcons and GetSpellorMacroIconInfo) then return end
+			RefreshPlayerSpellIconInfo()
+			for i=1,#GetMacroIcons(MACRO_ICON_FILENAMES) do add(GetSpellorMacroIconInfo(i)) end
+		end,
+		function() -- newer clients
+			if not (IconDataProviderMixin and CreateAndInitFromMixin) then return end
+			local iconProvider = CreateAndInitFromMixin(IconDataProviderMixin, IconDataProviderExtraType.Spell)
+			if iconProvider then
+				for i=1, iconProvider:GetNumIcons() do add(iconProvider:GetIconByIndex(i)) end
+				iconProvider:Release()
 			end
-			iconProvider:Release()
-		end
+		end,
+	}
+	for _, source in ipairs(sources) do
+		pcall(source)
+		if #ItemRackOpt.Icons > before then break end
+		-- a source that failed partway leaves nothing half-added
+		for i=#ItemRackOpt.Icons,before+1,-1 do ItemRackOpt.Icons[i] = nil end
 	end
 end
 
@@ -826,6 +860,7 @@ function ItemRackOpt.ListScrollFrameUpdate()
 			if opt.type=="label" then
 				item = _G["ItemRackOptList"..i.."Label"]
 				item:SetText(opt.label)
+				ItemRackOpt.FitLabel(item, 150)
 				item:Show()
 				if string.len(opt.label)>1 then
 					_G["ItemRackOptList"..i.."Underline"]:Show()

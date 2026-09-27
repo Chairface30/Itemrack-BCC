@@ -1647,6 +1647,14 @@ function ItemRack.WriteMenuCooldowns()
 	end
 end
 
+-- MouseIsOver(frame) is gone from newer clients (WoW Forever among them);
+-- a frame's own IsMouseOver does the same job.
+function ItemRack.MouseIsOver(frame)
+	if not frame then return false end
+	if _G.MouseIsOver then return _G.MouseIsOver(frame) end
+	return frame.IsMouseOver and frame:IsMouseOver() or false
+end
+
 function ItemRack.MenuMouseover()
 	local frame = GetMouseFocus()
 	local frameName = nil
@@ -1655,12 +1663,12 @@ function ItemRack.MenuMouseover()
 	if frame then frameName = frame:GetName() end
 	if frame then frameVisible = frame:IsVisible() end
 	if frameName then IRmouseOverFrame = ItemRack.MenuMouseoverFrames[frameName] end
-	if MouseIsOver(ItemRackMenuFrame) or IsShiftKeyDown() or (frame and frameName and frameVisible and IRmouseOverFrame) then
+	if ItemRack.MouseIsOver(ItemRackMenuFrame) or IsShiftKeyDown() or (frame and frameName and frameVisible and IRmouseOverFrame) then
 		return -- keep menu open if mouse over menu, shift is down or mouse is immediately over a mouseover frame
 	end
 	for i in pairs(ItemRack.MenuMouseoverFrames) do
 		frame = _G[i]
-		if frame and frame:IsVisible() and MouseIsOver(frame) then
+		if frame and frame:IsVisible() and ItemRack.MouseIsOver(frame) then
 			return -- keep menu open if some frame beneath mouse is a mouseover frame
 		end
 	end

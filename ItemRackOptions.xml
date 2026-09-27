@@ -2698,7 +2698,7 @@
 								self.timer = self.timer + elapsed
 								if self.timer > 1 then
 									self.timer = 0
-									if not MouseIsOver(self) and not MouseIsOver(ItemRackOptEventEditTypeDrop) then
+									if not ItemRack.MouseIsOver(self) and not ItemRack.MouseIsOver(ItemRackOptEventEditTypeDrop) then
 										self:Hide()
 									end
 								end

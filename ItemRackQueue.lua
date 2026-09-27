@@ -20,7 +20,7 @@ function ItemRack.ProcessAutoQueue(slot)
 		return
 	end
 
-	local start,duration,enable = GetInventoryItemCooldown("player",slot)
+	local start,duration,enable = ItemRack.ReadCooldown(GetInventoryItemCooldown("player",slot))
 	local timeLeft = math.max(start + duration - GetTime(),0)
 	local baseID = ItemRack.GetIRString(GetInventoryItemLink("player",slot),true,true)
 	local icon = _G["ItemRackButton"..slot.."Queue"]
@@ -29,7 +29,8 @@ function ItemRack.ProcessAutoQueue(slot)
 
 	local buff = GetItemSpell(baseID)
 	if buff then
-		if AuraUtil.FindAuraByName(buff,"player") then
+		local known, found = ItemRack.FindBuff(buff)
+		if known and found then
 			icon:SetDesaturated(true)
 			return
 		end
@@ -90,7 +91,9 @@ function ItemRack.ItemNearReady(id)
 		return true -- empty slot/invalid id: don't pass 0 to GetItemCooldown (matches classic behavior where GetItemCooldown(0) returned 0)
 	end
 	local start,duration = GetItemCooldown(baseID)
-	if not tonumber(start) then return end -- can return nil shortly after loading screen
+	-- nil shortly after a loading screen, or secret on Forever: not known, so not ready
+	if ItemRack.Num(start) == nil or ItemRack.Num(duration) == nil then return end
+	start,duration = ItemRack.Num(start),ItemRack.Num(duration)
 	if start==0 or math.max(start + duration - GetTime(),0)<=30 then
 		return true
 	end

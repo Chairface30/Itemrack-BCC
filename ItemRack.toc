@@ -1,0 +1,27 @@
+## Interface: 16001
+
+## Title: ItemRack - Forever
+## Version: 5.1
+## Author: Gello - Updated for Classic by Rottenbeer,Roadblock - Merged updated for BCC  edition by Chairface and Cexxal
+
+## Notes: Equipment set manager for quickly swapping gear (includes Options module)
+## SavedVariables: ItemRackSettings, ItemRackItems, ItemRackEvents
+## SavedVariablesPerCharacter: ItemRackUser
+## OptionalDeps: Masque
+## X-Curse-Project-ID: 340903
+
+# Libraries
+Libs\Libs.xml
+
+# Core ItemRack
+ItemRack.lua
+ItemRack.xml
+ItemRackButtons.lua
+ItemRackButtons.xml
+ItemRackEquip.lua
+ItemRackQueue.lua
+ItemRackEvents.lua
+
+# Options (previously LoadOnDemand - now integrated)
+ItemRackOptions.lua
+ItemRackOptions.xml

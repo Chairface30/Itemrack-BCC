@@ -90,7 +90,7 @@ function ItemRackOpt.OnLoad(self)
 	-- button = frame : reference to the button shown on the option (editbox, slider or actual button)
 	-- combatlock = 1/nil : whether option can be changed in combat (key bindings, hide when ooc, etc)
 	ItemRackOpt.OptInfo = {
-		{type="label",label=(UnitName("player")).."'s Settings"},
+		{type="label",label=ItemRack.PlayerName().."'s Settings"},
 		{type="check",optset=ItemRackUser,variable="Locked",label="Lock Buttons",tooltip="Prevent buttons and menus from being moved."},
 		{type="check",optset=ItemRackUser,variable="EnableEvents",label="Enable events",tooltip="Enable events to automatically swap gear."},
 		{type="check",optset=ItemRackUser,variable="EnableQueues",label="Enable auto queues",tooltip="Enables auto queues to automatically swap gear."},
@@ -1060,7 +1060,7 @@ end
 
 function ItemRackOpt.BindSet()
 	local setname = ItemRackOptSetsName:GetText()
-	ItemRackOpt.Binding = { type="Set", name="Set \""..setname.."\"", buttonName="ItemRack"..UnitName("player")..GetRealmName()..setname }
+	ItemRackOpt.Binding = { type="Set", name="Set \""..setname.."\"", buttonName=ItemRack.BindingPrefix()..setname }
 	ItemRackOpt.Binding.button = _G[ItemRackOpt.Binding.buttonName] or CreateFrame("Button",ItemRackOpt.Binding.buttonName,nil,"SecureActionButtonTemplate")
 	
 	ItemRackOptBindFrame:Show()	
@@ -1205,7 +1205,7 @@ function ItemRackOpt.ReconcileSetBindings()
 	local buttonName,key
 	for i in pairs(ItemRackUser.Sets) do
 		ItemRackUser.Sets[i].key = nil
-		buttonName = "ItemRack"..UnitName("player")..GetRealmName()..i
+		buttonName = ItemRack.BindingPrefix()..i
 		if _G[buttonName] then
 			key = GetBindingKey("CLICK "..buttonName..":LeftButton")
 			if key and key~="" then

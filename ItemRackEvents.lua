@@ -505,13 +505,16 @@ function ItemRack.ProcessBuffEvent()
 				end
 			end
 			if not skip then
+				local known = true
 				if events[eventName].Anymount then
 					buff = IsMounted() and not UnitOnTaxi("player")
 				else
-					buff = AuraUtil.FindAuraByName(events[eventName].Buff,"player")
+					-- Unreadable in combat on Forever: leave this set alone until
+					-- the buffs can be seen again.
+					known, buff = ItemRack.FindBuff(events[eventName].Buff)
 				end
 				setname = ItemRackUser.Events.Set[eventName]
-				if setname then -- an enabled event without a set would spam EquipSet(nil) on every aura change
+				if setname and known then -- an enabled event without a set would spam EquipSet(nil) on every aura change
 					isSetEquipped = ItemRack.IsSetEquipped(setname)
 					if buff and not isSetEquipped then
 						table.insert(setsToEquip,setname)

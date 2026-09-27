@@ -601,7 +601,7 @@ end
 function ItemRack.WriteButtonCooldowns()
 	if ItemRackSettings.CooldownCount=="ON" then
 		for i in pairs(ItemRackUser.Buttons) do
-			ItemRack.WriteCooldown(_G["ItemRackButton"..i.."Time"],GetInventoryItemCooldown("player",i))
+			ItemRack.WriteCooldown(_G["ItemRackButton"..i.."Time"],ItemRack.ReadCooldown(GetInventoryItemCooldown("player",i)))
 		end
 	end
 end
@@ -719,6 +719,7 @@ end
 --[[ Cooldowns ]]
 
 function ItemRack.WriteCooldown(where,start,duration)
+	start,duration = ItemRack.ReadCooldown(start,duration)
 	local cooldown = duration - (GetTime()-start)
 	if start==0 or ItemRackSettings.CooldownCount=="OFF" then
 		where:SetText("")

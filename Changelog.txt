@@ -1,3 +1,10 @@
+__ Unreleased - WoW Forever support - By Chairface Chippendale __
+* Loads on WoW Forever through its own ItemRack.toc (interface 16001); TBC still loads ItemRack_TBC.toc and plays exactly as before
+* Forever: cooldown counts no longer error when the client keeps a cooldown secret - the number is left off, the swirl still shows
+* Forever: buff events leave your gear alone in combat, where every aura is hidden from addons, instead of reading "buff gone" and unequipping; the auto-queue's buff check does the same
+* Forever: uses your whole name ("First Surname"), which the client returns in two parts
+* Forever: set key-binding buttons are named without spaces or punctuation (Forever's names and realm names have both). TBC bindings are untouched
+
 __ New in 5.1 - By Chairface __
 * Fixed most Global Settings checkboxes silently not applying or persisting (they wrote to a stale pre-login table)
 * Fixed Script events never seeing their event arguments (arg1/arg2) - "After Cast" style scripts work again

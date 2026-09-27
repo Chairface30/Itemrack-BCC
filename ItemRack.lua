@@ -18,6 +18,59 @@ local GetAddOnInfo = GetAddOnInfo or (C_AddOns and C_AddOns.GetAddOnInfo)
 
 ItemRack.Version = GetAddOnMetadata and GetAddOnMetadata(addonName, "Version") or "Unknown"
 
+-- WoW Forever (interface 16xxx). Its own TOC is ItemRack.toc; the TBC
+-- client loads ItemRack_TBC.toc. Everything below behaves as before on TBC.
+ItemRack.IsForever = type(wowtoc) == "number" and wowtoc >= 16000 and wowtoc < 17000
+
+-- On Forever the client keeps some values secret from addons: they still
+-- answer type() == "number" (or "string"), then throw the moment they are
+-- compared or added. Cooldown times can be secret, and auras cannot be read
+-- at all in combat. Health and power are always secret.
+
+-- A number that can be used, or nil when the client keeps it secret.
+function ItemRack.Num(value)
+	local ok, n = pcall(function() return value + 0 end)
+	if ok and n == n then return n end
+end
+
+-- start, duration, enable from any cooldown call, usable in math. A secret
+-- cooldown reads as none (0, 0): the cooldown swirl, drawn by the client
+-- from the raw values, still shows it.
+function ItemRack.ReadCooldown(start, duration, enable)
+	local s, d = ItemRack.Num(start), ItemRack.Num(duration)
+	if not (s and d) then return 0, 0, enable end
+	return s, d, enable
+end
+
+-- Auras are unreadable in combat on Forever: every method returns nothing,
+-- so "no buff" then would look like the buff falling off. Returns
+-- (known, found): known is false while auras cannot be read.
+function ItemRack.FindBuff(name)
+	if ItemRack.IsForever and (InCombatLockdown() or UnitAffectingCombat("player")) then return false end
+	local ok, found = pcall(AuraUtil.FindAuraByName, name, "player")
+	if not ok then return false end
+	local readable = pcall(function() return found == found and (found == nil or found .. "") end)
+	if not readable then return false end
+	return true, found
+end
+
+-- This character's whole name. On Forever UnitName("player") returns the
+-- first name and the surname as two values ("Highley", "Regarded"), where
+-- other clients put a realm (nil for yourself).
+function ItemRack.PlayerName()
+	local first, second = UnitName("player")
+	if ItemRack.IsForever and second and second ~= "" then return first .. " " .. second end
+	return first
+end
+
+-- The key-binding buttons' name prefix: the character and realm. On TBC
+-- exactly as it always was, so existing bindings keep working; on Forever
+-- without the spaces and punctuation its names and realm names carry.
+function ItemRack.BindingPrefix()
+	if not ItemRack.IsForever then return "ItemRack"..UnitName("player")..GetRealmName() end
+	return "ItemRack" .. ((ItemRack.PlayerName() or "") .. (GetRealmName() or "")):gsub("[%s%p]", "")
+end
+
 -- by Mikinho - Fix for latest update for Classic Era/SoD v11504
 local GetMouseFocus = GetMouseFocus
 if not GetMouseFocus and GetMouseFoci then
@@ -1571,7 +1624,7 @@ function ItemRack.WriteMenuCooldowns()
 		for i=1,#(ItemRack.Menu) do
 			baseID = tonumber(ItemRack.GetIRString(ItemRack.Menu[i],true))
 			if baseID and baseID>0 then
-				ItemRack.WriteCooldown(_G["ItemRackMenu"..i.."Time"],GetItemCooldown(baseID))
+				ItemRack.WriteCooldown(_G["ItemRackMenu"..i.."Time"],ItemRack.ReadCooldown(GetItemCooldown(baseID)))
 			else
 				_G["ItemRackMenu"..i.."Time"]:SetText("")
 			end
@@ -1944,10 +1997,10 @@ function ItemRack.TooltipUpdate()
 		ItemRack.AnchorTooltip(ItemRack.TooltipOwner)
 		if ItemRack.TooltipType=="BAG" then
 			GameTooltip:SetBagItem(ItemRack.TooltipBag,ItemRack.TooltipSlot)
-			cooldown = GetContainerItemCooldown(ItemRack.TooltipBag,ItemRack.TooltipSlot)
+			cooldown = ItemRack.ReadCooldown(GetContainerItemCooldown(ItemRack.TooltipBag,ItemRack.TooltipSlot))
 		else
 			GameTooltip:SetInventoryItem("player",ItemRack.TooltipSlot)
-			cooldown = GetInventoryItemCooldown("player",ItemRack.TooltipSlot)
+			cooldown = ItemRack.ReadCooldown(GetInventoryItemCooldown("player",ItemRack.TooltipSlot))
 		end
 		ItemRack.ShrinkTooltip(ItemRack.TooltipOwner) -- if TinyTooltips on, shrink it
 		if ItemRack.TooltipType=="INVENTORY" and ItemRack.TooltipBag then
@@ -2067,6 +2120,7 @@ function ItemRack.CooldownUpdate()
 	local inv,bag,slot,start,duration,name,remain
 	for i in pairs(ItemRackUser.ItemsUsed) do
 		start,duration = GetItemCooldown(i)
+		if start then start,duration = ItemRack.ReadCooldown(start,duration) end
 		if start and ItemRackUser.ItemsUsed[i]<3 then
 			ItemRackUser.ItemsUsed[i] = ItemRackUser.ItemsUsed[i] + 1 -- count for 3 seconds before seeing if this is a real cooldown
 		elseif start then
@@ -2343,7 +2397,7 @@ function ItemRack.SetSetBindings()
 		local buttonName,button
 		for i in pairs(ItemRackUser.Sets) do
 			if ItemRackUser.Sets[i].key then
-				buttonName = "ItemRack"..UnitName("player")..GetRealmName()..i
+				buttonName = ItemRack.BindingPrefix()..i
 				button = _G[buttonName] or CreateFrame("Button",buttonName,nil,"SecureActionButtonTemplate")
 				
 				-- Store the set name on the button for the click handler
@@ -2559,7 +2613,7 @@ function ItemRack.ProfileFuncs()
 			end
 		end
 		table.sort(t)
-		local info = "ItemRack profile "..date().." "..UnitName("player").."\n"
+		local info = "ItemRack profile "..date().." "..ItemRack.PlayerName().."\n"
 		for i=1,#(t) do
 			info = info..t[i].."\n"
 		end

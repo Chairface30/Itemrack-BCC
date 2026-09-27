@@ -1,0 +1,8 @@
+# CurseForge packaging. The folder must be named like the .toc files
+# (ItemRack.toc for Forever, ItemRack_TBC.toc for TBC) or the game won't
+# load it; without this the packager names it after the repo, Itemrack-BCC.
+package-as: ItemRack
+
+# Kept in the repository, left out of the download.
+ignore:
+  - .pkgmeta

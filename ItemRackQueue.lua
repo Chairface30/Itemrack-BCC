@@ -85,7 +85,11 @@ function ItemRack.ProcessAutoQueue(slot)
 end
 
 function ItemRack.ItemNearReady(id)
-	local start,duration = GetItemCooldown(id)
+	local baseID = tonumber(id)
+	if not baseID or baseID<=0 then
+		return true -- empty slot/invalid id: don't pass 0 to GetItemCooldown (matches classic behavior where GetItemCooldown(0) returned 0)
+	end
+	local start,duration = GetItemCooldown(baseID)
 	if not tonumber(start) then return end -- can return nil shortly after loading screen
 	if start==0 or math.max(start + duration - GetTime(),0)<=30 then
 		return true

@@ -21,8 +21,7 @@ ItemRack.NewAnchor = nil
 function ItemRack.InitButtons()
 	ItemRackUser.Buttons = ItemRackUser.Buttons or {}
 
-	ItemRack.oldPaperDollItemSlotButton_OnModifiedClick = PaperDollItemSlotButton_OnModifiedClick
-	PaperDollItemSlotButton_OnModifiedClick = ItemRack.newPaperDollItemSlotButton_OnModifiedClick
+	hooksecurefunc("PaperDollItemSlotButton_OnModifiedClick",ItemRack.newPaperDollItemSlotButton_OnModifiedClick)
 
 	if CharacterAmmoSlot then
 		ItemRack.oldCharacterAmmoSlot_OnClick = CharacterAmmoSlot:GetScript("OnClick")
@@ -31,8 +30,7 @@ function ItemRack.InitButtons()
 
 	local characterModel = CharacterModelFrame or CharacterModelScene
 	if characterModel then
-		ItemRack.oldCharacterModelFrame_OnMouseUp = characterModel:GetScript("OnMouseUp")
-		characterModel:SetScript("OnMouseUp",ItemRack.newCharacterModelFrame_OnMouseUp)
+		characterModel:HookScript("OnMouseUp",ItemRack.newCharacterModelFrame_OnMouseUp)
 	end
 
 
@@ -67,7 +65,7 @@ function ItemRack.InitButtons()
             b = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
         end
 
-        b:RegisterForClicks("AnyDown", "AnyUp")
+        b:RegisterForClicks("AnyDown") -- down only: a keybind delivers both down and up clicks, and both registered would use the item twice per press
         b:SetAttribute("type", "item")
 		b:SetAttribute("slot", i)
 		b:SetAttribute("item", nil)
@@ -118,8 +116,6 @@ end
 function ItemRack.newPaperDollItemSlotButton_OnModifiedClick(self, button)
 	if IsAltKeyDown() then
 		ItemRack.ToggleButton(self:GetID())
-	else
-		ItemRack.oldPaperDollItemSlotButton_OnModifiedClick(self, button)
 	end
 end
 
@@ -136,7 +132,6 @@ function ItemRack.newCharacterModelFrame_OnMouseUp(self, button)
 	if IsAltKeyDown() then
 		ItemRack.ToggleButton(20)
 	end
-	ItemRack.oldCharacterModelFrame_OnMouseUp(self, button)
 end
 
 function ItemRack.AddButton(id)
@@ -169,7 +164,6 @@ function ItemRack.RemoveButton(id)
 		return
 	end
 	local child,xpos,ypos
-	local dockedTo = ItemRackUser.Buttons[id].DockedTo
 	for i in pairs(ItemRackUser.Buttons) do
 		if ItemRackUser.Buttons[i].DockTo == id then
 			ItemRackUser.Buttons[i].DockTo = nil
@@ -257,13 +251,13 @@ end
 function ItemRack.ButtonsDocking()
 
 	local button = ItemRack.ButtonMoving
-	local dock = nil
-	local buttonID = button:GetID()
-	local near = ItemRack.Near
 	if not button then
 		ItemRack.StopTimer("ButtonsDocking")
 		return
 	end
+	local dock = nil
+	local buttonID = button:GetID()
+	local near = ItemRack.Near
 
 	ItemRack.HideBrackets()
 
@@ -340,7 +334,9 @@ end
 function ItemRack.ConstructLayout()
 
 	if InCombatLockdown() then
-		table.insert(ItemRack.RunAfterCombat,"ConstructLayout")
+		if not tContains(ItemRack.RunAfterCombat,"ConstructLayout") then
+			table.insert(ItemRack.RunAfterCombat,"ConstructLayout")
+		end
 		return
 	end
 	
@@ -656,7 +652,9 @@ end
 
 function ItemRack.ReflectMainScale(changing)
 	if InCombatLockdown() then
-		table.insert(ItemRack.RunAfterCombat,"ReflectMainScale")
+		if not tContains(ItemRack.RunAfterCombat,"ReflectMainScale") then
+			table.insert(ItemRack.RunAfterCombat,"ReflectMainScale")
+		end
 		return
 	end
 	

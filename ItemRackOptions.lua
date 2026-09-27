@@ -851,7 +851,7 @@ function ItemRackOpt.ListScrollFrameUpdate()
 			elseif opt.type=="number" then
 				item = _G["ItemRackOptList"..i.."NumberLabel"]
 				item:SetText(opt.label)
-				if opt.depend and opt.optset[opt.depend]=="OFF" then
+				if opt.depend and GetOptValue({optset=opt.optset, variable=opt.depend})=="OFF" then
 					item:SetTextColor(.5,.5,.5,1)
 					opt.button:EnableMouse(false)
 					opt.button:SetAlpha(.5)
@@ -865,7 +865,7 @@ function ItemRackOpt.ListScrollFrameUpdate()
 				opt.button:Show()
 			elseif opt.type=="slider" then
 				opt.button:SetPoint("LEFT",button,"LEFT",32,4)
-				if opt.depend and opt.optset[opt.depend]=="OFF" then
+				if opt.depend and GetOptValue({optset=opt.optset, variable=opt.depend})=="OFF" then
 					opt.button:EnableMouse(false)
 					opt.button:SetAlpha(.5)
 				else
@@ -940,11 +940,15 @@ function ItemRackOpt.OptListCheckButtonOnClick(self,override)
 	if not opt or not opt.variable then
 		return
 	end
-	-- Update the value in opt.optset for display consistency
-	opt.optset[opt.variable] = check
-	-- Also write directly to the global tables to ensure persistence
-	if opt.variable == "Locked" or opt.variable == "EnableEvents" or opt.variable == "EnableQueues" or opt.variable == "EnablePerSetQueues" or opt.variable == "SetMenuWrap" then
+	-- OptInfo captured its optset table references in OnLoad, which runs before
+	-- SavedVariables are restored and replace the globals; resolve the live
+	-- table at click time (same precedence as GetOptValue)
+	if ItemRackUser[opt.variable] ~= nil then
 		ItemRackUser[opt.variable] = check
+	elseif ItemRackSettings[opt.variable] ~= nil then
+		ItemRackSettings[opt.variable] = check
+	else
+		opt.optset[opt.variable] = check
 	end
 	if opt.variable=="Locked" then
 		ItemRack.ReflectLock()
@@ -1297,16 +1301,15 @@ function ItemRackOpt.SetupQueue(id)
 	if not ItemRackUser.Queues[id] then
 		ItemRackUser.Queues[id] = {}
 	end
-	for name, set in pairs(ItemRackUser.Sets) do
-		if not set.Queues then
-			set.Queues = {}
-		end
-	
-		if not set.Queues[id] then
-			set.Queues[id] = {}
+	if ItemRackUser.EnablePerSetQueues == "ON" then
+		for name, set in pairs(ItemRackUser.Sets) do
+			if not string.match(name,"^~") then -- don't pollute internal sets with queue tables
+				set.Queues = set.Queues or {}
+				set.Queues[id] = set.Queues[id] or {}
+			end
 		end
 	end
-	
+
 	ItemRackOpt.SelectedSlot = id
 	ItemRackOpt.SortSelected = nil
 	ItemRackOptSlotQueueName:SetText(ItemRack.SlotInfo[id].real)

@@ -1,8 +1,9 @@
 -- ItemRackEquip.lua : ItemRack.EquipSet and its supporting functions.
-local GetContainerNumSlots, GetContainerItemLink, GetContainerItemCooldown, GetContainerItemInfo, GetItemCooldown, PickupContainerItem, ContainerIDToInventoryID
+local GetContainerNumSlots, GetContainerItemLink, GetContainerItemID, GetContainerItemCooldown, GetContainerItemInfo, GetItemCooldown, PickupContainerItem, ContainerIDToInventoryID
 if C_Container then
 	GetContainerNumSlots = C_Container.GetContainerNumSlots
 	GetContainerItemLink = C_Container.GetContainerItemLink
+	GetContainerItemID = C_Container.GetContainerItemID
 	GetContainerItemCooldown = C_Container.GetContainerItemCooldown
 	GetItemCooldown = C_Container.GetItemCooldown
 	PickupContainerItem = C_Container.PickupContainerItem
@@ -16,8 +17,8 @@ if C_Container then
 		end
 	end
 else
-	GetContainerNumSlots, GetContainerItemLink, GetContainerItemCooldown, GetContainerItemInfo, GetItemCooldown, PickupContainerItem, ContainerIDToInventoryID =
-	_G.GetContainerNumSlots, _G.GetContainerItemLink, _G.GetContainerItemCooldown, _G.GetContainerItemInfo, _G.GetItemCooldown, _G.PickupContainerItem, _G.ContainerIDToInventoryID
+	GetContainerNumSlots, GetContainerItemLink, GetContainerItemID, GetContainerItemCooldown, GetContainerItemInfo, GetItemCooldown, PickupContainerItem, ContainerIDToInventoryID =
+	_G.GetContainerNumSlots, _G.GetContainerItemLink, _G.GetContainerItemID, _G.GetContainerItemCooldown, _G.GetContainerItemInfo, _G.GetItemCooldown, _G.PickupContainerItem, _G.ContainerIDToInventoryID
 end
 
 ItemRack.SwapList = {} -- table of item ids that want to swap in, indexed by slot
@@ -188,26 +189,45 @@ function ItemRack.EquipSet(setname)
 
 	-- Ensure set.old exists to store items we're replacing (for unequip restoration)
 	set.old = set.old or {}
-	for i in pairs(set.old) do
-		set.old[i] = nil -- wipe old items
+	-- On an EndSetSwap retry of this same set, some slots already hold the NEW items;
+	-- wiping would lose their true pre-set gear and Unequip/Toggle would only restore
+	-- the slots that stalled. Keep the first attempt's records instead (all set.old
+	-- writes are nil-guarded, so surviving entries always win).
+	local isRetry = ItemRack.SetSwapRetrying==setname and (ItemRack.SetSwapRetryCount or 0)>0
+	if not isRetry then
+		for i in pairs(set.old) do
+			set.old[i] = nil -- wipe old items
+		end
 	end
 	-- Only save oldset for regular sets, not internal sets (which have oldset set by UnequipSet)
 	if not string.match(setname, "^~") then
 		set.oldset = ItemRackUser.CurrentSet
 	end
 
-	-- if in combat or dead, combat queue items wanting to equip and only let swappables through
-	if UnitAffectingCombat("player") or ItemRack.IsPlayerReallyDead() then
+	-- if in combat or dead, combat queue ALL items wanting to equip. On this client
+	-- every equipment move is protected for addon code in combat — cursor pickups
+	-- AND insecure EquipItemByName both fire ADDON_ACTION_BLOCKED (verified in-game),
+	-- so not even weapons can swap from Lua here. In-combat weapon swapping happens
+	-- via the secure "/equipslot" macrotext on the set keybind buttons
+	-- (SetSetBindings); everything routed through here waits for combat end.
+	if InCombatLockdown() or UnitAffectingCombat("player") or ItemRack.IsPlayerReallyDead() then
+		local queued
 		for i in pairs(swap) do
-			ItemRack.AddToCombatQueue(i,swap[i])
+			-- assign directly instead of AddToCombatQueue: its same-id toggle
+			-- semantics (meant for manual clicks cancelling a queued item) would
+			-- remove queued items every SECOND time an event (aura change, stance
+			-- dance) re-equips the same set while it's still sitting in the queue
+			ItemRack.CombatQueue[i] = swap[i]
 			-- print("Combat queue "..ItemRack.GetInfoByID(swap[i]))
-			swap[i] = nil
-			if set.old then
+			if set.old[i]==nil then
 				set.old[i] = ItemRack.GetID(i)
-				ItemRack.CombatSet = setname
-			elseif set.oldset then
-				ItemRack.CombatSet = set.oldset
 			end
+			swap[i] = nil
+			queued = true
+		end
+		if queued then
+			ItemRack.CombatSet = setname
+			ItemRack.UpdateCombatQueue()
 		end
 	end
 	if not next(swap) then
@@ -292,7 +312,7 @@ function ItemRack.IterateSwapList(setname)
 			if swap[k]==0 then -- if intended to be empty
 				bag,slot = ItemRack.FindSpace()
 				if bag then
-					if set.old then
+					if set.old and set.old[i]==nil then
 						set.old[i] = ItemRack.GetID(i)
 					end
 					ItemRack.MoveItem(i,nil,bag,slot) -- empty slot
@@ -304,6 +324,7 @@ function ItemRack.IterateSwapList(setname)
 			else
 				inv,bag,slot = ItemRack.FindItem(swap[k],1)
 				if bag then
+					treatAs2H = nil
 					if i==16 and ItemRack.HasTitansGrip then
 						local subtype = select(7,GetItemInfo(GetContainerItemLink(bag,slot)))
 						if subtype and ItemRack.NoTitansGrip[subtype] then
@@ -315,8 +336,12 @@ function ItemRack.IterateSwapList(setname)
 					if (not ItemRack.HasTitansGrip or treatAs2H) and select(3,ItemRack.GetInfoByID(swap[k]))=="INVTYPE_2HWEAPON" then
 						-- this is a 2H weapon. swap both slots at once if offhand equipped
 						if set.old then
-							set.old[i] = ItemRack.GetID(i)
-							set.old[i+1] = ItemRack.GetID(i+1)
+							if set.old[i]==nil then
+								set.old[i] = ItemRack.GetID(i)
+							end
+							if set.old[i+1]==nil then
+								set.old[i+1] = ItemRack.GetID(i+1)
+							end
 						end
 						if GetInventoryItemLink("player",17) then
 							local freeBag,freeSlot = ItemRack.FindSpace()
@@ -326,12 +351,14 @@ function ItemRack.IterateSwapList(setname)
 								ItemRack.AbortSwap=1
 							end
 						end
-						ItemRack.MoveItem(bag,slot,16,nil)
-						swap[k] = nil
-						swap[k+1] = nil -- fix by Romracer
+						if not ItemRack.AbortSwap then -- don't force the 2H in if the offhand couldn't be vacated
+							ItemRack.MoveItem(bag,slot,16,nil)
+							swap[k] = nil
+							swap[k+1] = nil -- fix by Romracer
+						end
 						skip = 1
 					else
-						if set.old then
+						if set.old and set.old[i]==nil then
 							set.old[i] = ItemRack.GetID(i)
 						end
 						ItemRack.MoveItem(bag,slot,i,nil)
@@ -340,13 +367,35 @@ function ItemRack.IterateSwapList(setname)
 				elseif inv==(i+1) and ItemRack.SameID(swap[k+1],ItemRack.GetID(i)) then
 					-- item is in other slot and other slot wants to go to this one
 					if set.old then
-						set.old[i] = ItemRack.GetID(i)
-						set.old[i+1] = ItemRack.GetID(i+1)
+						if set.old[i]==nil then
+							set.old[i] = ItemRack.GetID(i)
+						end
+						if set.old[i+1]==nil then
+							set.old[i+1] = ItemRack.GetID(i+1)
+						end
 					end
 					ItemRack.MoveItem(i,nil,i+1,nil)
 					swap[k] = nil
 					swap[k+1] = nil
 					skip = 1
+				elseif inv and inv~=i and not ItemRack.SameID(set.equip[inv],swap[k]) then
+					-- the wanted item is worn in another slot (main<->offhand, ring or trinket
+					-- partner) that isn't supposed to keep a copy of it. Without this branch a
+					-- set that changes ONLY this slot never issues a move: no ITEM_LOCK_CHANGED
+					-- fires, so the second pass never runs and the swap silently stalls.
+					-- Move the worn copy to a bag (a direct slot-to-slot move could displace the
+					-- current item into a slot it can't legally occupy, eg a mainhand-only weapon
+					-- into the offhand); the lock-change pass then equips it from the bag.
+					local freeBag,freeSlot = ItemRack.FindSpace()
+					if freeBag then
+						if set.old and set.old[inv]==nil then
+							set.old[inv] = ItemRack.GetID(inv)
+						end
+						ItemRack.MoveItem(inv,nil,freeBag,freeSlot)
+						-- swap[k] intentionally kept: LockChangedDuringSetSwap finishes the job
+					else
+						ItemRack.AbortSwap = 1
+					end
 				end
 			end
 		end
@@ -369,12 +418,14 @@ function ItemRack.EndSetSwap(setname)
 				local retryCount = ItemRack.SetSwapRetryCount or 0
 				if retryCount < 3 then
 					ItemRack.SetSwapRetryCount = retryCount + 1
+					ItemRack.SetSwapRetrying = setname -- lets EquipSet know not to wipe set.old
 					C_Timer.After(0.3, function()
 						if not ItemRack.IsSetEquipped(setname) then
 							ItemRack.EquipSet(setname)
 						else
 							-- Set is now equipped, finalize
 							ItemRack.SetSwapRetryCount = 0
+							ItemRack.SetSwapRetrying = nil
 							ItemRackUser.CurrentSet = setname
 							ItemRack.UpdateCurrentSet(setname)
 						end
@@ -383,8 +434,10 @@ function ItemRack.EndSetSwap(setname)
 				end
 				-- Max retries reached, proceed anyway
 				ItemRack.SetSwapRetryCount = 0
+				ItemRack.SetSwapRetrying = nil
 			else
 				ItemRack.SetSwapRetryCount = 0
+				ItemRack.SetSwapRetrying = nil
 			end
 		end
 		
@@ -442,20 +495,36 @@ function ItemRack.MoveItem(fromBag,fromSlot,toBag,toSlot)
 	if abort then
 		ItemRack.AbortSwap = abort
 		return
+	end
+
+	-- Every equipment move is protected for addon code in combat on this client:
+	-- cursor pickups AND insecure EquipItemByName fire ADDON_ACTION_BLOCKED
+	-- (verified in-game; only the secure keybind macro may equip weapons in
+	-- combat). EquipSet queues before reaching here, but if combat began while a
+	-- swap was already in flight, degrade gracefully: queue instead of erroring.
+	if (InCombatLockdown() or UnitAffectingCombat("player")) and (not fromSlot or not toSlot) then
+		if not toSlot then
+			local invslot = (toBag == INVSLOT_AMMO) and INVSLOT_RANGED or toBag
+			ItemRack.CombatQueue[invslot] = ItemRack.GetID(fromBag,fromSlot)
+		else
+			ItemRack.CombatQueue[fromBag] = 0
+		end
+		ItemRack.UpdateCombatQueue()
+		return
+	end
+
+	if fromSlot then
+		PickupContainerItem(fromBag,fromSlot)
 	else
-		if fromSlot then
-			PickupContainerItem(fromBag,fromSlot)
-		else
-			PickupInventoryItem(fromBag)
+		PickupInventoryItem(fromBag)
+	end
+	if toSlot then
+		PickupContainerItem(toBag,toSlot)
+	else
+		if toBag == INVSLOT_AMMO then -- workaround for classic ammo slot weirdness
+			toBag = INVSLOT_RANGED
 		end
-		if toSlot then
-			PickupContainerItem(toBag,toSlot)
-		else
-			if toBag == INVSLOT_AMMO then -- workaround for classic ammo slot weirdness
-				toBag = INVSLOT_RANGED
-			end
-			PickupInventoryItem(toBag)
-		end
+		PickupInventoryItem(toBag)
 	end
 end
 

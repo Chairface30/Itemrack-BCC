@@ -114,7 +114,12 @@ end
 local LDB = LibStub("LibDataBroker-1.1")
 local LDBIcon = LibStub("LibDBIcon-1.0")
 
--- Preserve saved variables, only set defaults if not present
+-- Preserve saved variables, only set defaults if not present.
+-- This runs at file scope (before SavedVariables are restored) so that OnLoad
+-- handlers can read the tables, and again from OnPlayerLogin because the
+-- restore REPLACES these globals — without the second pass, settings added in
+-- newer versions would stay nil forever for existing users.
+function ItemRack.ApplyDefaults()
 ItemRackUser = ItemRackUser or {}
 ItemRackUser.Sets = ItemRackUser.Sets or {} -- user's sets
 ItemRackUser.ItemsUsed = ItemRackUser.ItemsUsed or {} -- items that have been used (for notify purposes)
@@ -177,6 +182,8 @@ if ItemRackItems["13209"] == nil then ItemRackItems["13209"] = { keep=1 } end --
 if ItemRackItems["19812"] == nil then ItemRackItems["19812"] = { keep=1 } end -- rune of the dawn
 if ItemRackItems["12846"] == nil then ItemRackItems["12846"] = { keep=1 } end -- argent dawn commission
 if ItemRackItems["25653"] == nil then ItemRackItems["25653"] = { keep=1 } end -- riding crop
+end
+ItemRack.ApplyDefaults()
 
 ItemRack.NoTitansGrip = {
 	["Polearms"] = 1, -- reverted in 3.4.1 to block Polearms from Titan's Grip again
@@ -210,6 +217,9 @@ ItemRack.SlotInfo = {
 	[13] = { name="Trinket0Slot", real="Top Trinket", INVTYPE_TRINKET=1, other=14 },
 	[14] = { name="Trinket1Slot", real="Bottom Trinket", INVTYPE_TRINKET=1, other=13 },
 	[15] = { name="BackSlot", real="Cloak", INVTYPE_CLOAK=1 },
+	-- note: on this client ALL equipment moves (weapons included) are protected for addon
+	-- code in combat; in-combat weapon swapping only works via the secure "/equipslot"
+	-- macrotext on the set keybind buttons (see SetSetBindings)
 	[16] = { name="MainHandSlot", real="Main hand", INVTYPE_WEAPONMAINHAND=1, INVTYPE_2HWEAPON=1, INVTYPE_WEAPON=1, other=17},
 	[17] = { name="SecondaryHandSlot", real="Off hand", INVTYPE_WEAPON=1, INVTYPE_WEAPONOFFHAND=1, INVTYPE_SHIELD=1, INVTYPE_HOLDABLE=1, other=16},
 	[18] = { name="RangedSlot", real="Ranged", INVTYPE_RANGED=1, INVTYPE_RANGEDRIGHT=1, INVTYPE_THROWN=1, INVTYPE_RELIC=1},
@@ -333,12 +343,16 @@ end
 function ItemRack.OnPlayerLogin()
 	-- Normally some of these methods cannot be called in combat without causing errors, but since we run these IMMEDIATELY
 	-- on PLAYER_LOGIN event we get a grace period where it allows us to run secure code in combat.
+	ItemRack.ApplyDefaults() -- SavedVariables restore replaced the globals; fill in defaults for settings missing from saved data
 	ItemRack.InitBroker()
 	ItemRack.InitEventHandlers()
 	ItemRack.InitTimers()
 	ItemRack.InitCore()
 	ItemRack.InitButtons()
 	ItemRack.InitEvents()
+	if ItemRackOpt and ItemRackOpt.InitializeSliders then
+		ItemRackOpt.InitializeSliders() -- options OnLoad ran before SavedVariables restore; re-seed sliders from the live values
+	end
 	-- Initialize keybindings immediately on login/reload
 	ItemRack.SetSetBindings()
 	-- Restore current set display from saved variables
@@ -352,13 +366,18 @@ end
 function ItemRack.OnEnterWorld(self,event,...)
 	local isLogin,isReload = ...
 	if isLogin or isReload then
+		-- zone text and shapeshift forms aren't populated yet at PLAYER_LOGIN;
+		-- RegisterEvents defers its initial stance/zone/buff sweep until this flag
+		-- is set, otherwise Unequip-flagged event sets get wrongly stripped at login
+		ItemRack.EnteredWorld = 1
+		ItemRack.RegisterEvents()
 		C_Timer.After(15,function()
 			ItemRack.SetSetBindings()
 		end)
 	end
 end
 
-local loader = CreateFrame("Frame",nil, self, BackdropTemplateMixin and "BackdropTemplate") -- need a new temp frame here, ItemRackFrame is not created yet
+local loader = CreateFrame("Frame") -- need a new temp frame here, ItemRackFrame is not created yet
 
 loader:RegisterEvent("PLAYER_LOGIN")
 loader:SetScript("OnEvent", ItemRack.OnPlayerLogin)
@@ -449,6 +468,13 @@ function ItemRack.ProcessCombatQueue()
 		ItemRack.EquipSet("~CombatQueue")
 	end
 
+	-- resume sets deferred while casting: LocksChanged only processes SetsWaiting on
+	-- ITEM_LOCK_CHANGED, which may not fire for a long time after a cast ends. This runs
+	-- from the cast-stop and leaving-combat paths, so pick the wait list back up here.
+	if #(ItemRack.SetsWaiting)>0 and not ItemRack.NowCasting and not ItemRack.AnythingLocked() then
+		ItemRack.ProcessSetsWaiting()
+	end
+
 	local inLockdown = InCombatLockdown()
 	if not inLockdown then
 		if ItemRackOptFrame and ItemRackOptFrame:IsVisible() then
@@ -462,9 +488,7 @@ function ItemRack.ProcessCombatQueue()
 			for i=1,#(ItemRack.RunAfterCombat) do
 				ItemRack[ItemRack.RunAfterCombat[i]]()
 			end
-			for i=1,#(ItemRack.RunAfterCombat) do
-				table.remove(ItemRack.RunAfterCombat,i)
-			end
+			wipe(ItemRack.RunAfterCombat)
 		end
 	end
 
@@ -507,7 +531,12 @@ end
 function ItemRack.UpdateClassSpecificStuff()
 	local _,class = UnitClass("player")
 
-	if class=="WARRIOR" or class=="ROGUE" or class=="HUNTER" or class=="MAGE" or class=="WARLOCK" or class=="SHAMAN" or class=="DEATHKNIGHT" then
+	if CanDualWield then
+		-- live query (this runs again on CHARACTER_POINTS_CHANGED, so it tracks the
+		-- shaman Dual Wield talent and dual wield learned while leveling)
+		ItemRack.CanWearOneHandOffHand = CanDualWield() and 1 or nil
+	elseif class=="WARRIOR" or class=="ROGUE" or class=="HUNTER" or class=="SHAMAN" or class=="DEATHKNIGHT" then
+		-- fallback class list; mages/warlocks removed, they can never dual wield
 		ItemRack.CanWearOneHandOffHand = 1
 	end
 
@@ -775,6 +804,7 @@ function ItemRack.InitCore()
 	ItemRackFrame:RegisterEvent("BANKFRAME_CLOSED")
 	ItemRackFrame:RegisterEvent("BANKFRAME_OPENED")
 	ItemRackFrame:RegisterEvent("CHARACTER_POINTS_CHANGED")
+	ItemRackFrame:RegisterEvent("PLAYER_LOGOUT")
 	if ItemRack.IsWrath() then
 		ItemRackFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
 		ItemRackFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED")
@@ -875,9 +905,19 @@ function ItemRack.GetIRString(inputString,baseid,regular)
 end
 
 -- itemrack itemstring updater.
--- takes a saved ItemRack-style ID and returns an updated version with the latest player level and spec injected, which helps us update outdated IDs saved when the player was lower level or different spec
+-- takes a saved ItemRack-style ID and returns an updated version with the latest player level injected into
+-- field 9 (linkLevel), which helps us update outdated IDs saved when the player was a lower level.
+-- fields must be matched with [^:]* rather than %d+ because this client emits itemstrings with EMPTY fields
+-- (eg "6948::::::::70:..."), and a saved ID whose level field was never updated can never exact-match again
+-- after the player levels. if the ID has fewer than 9 fields (eg a bare baseID) or an empty level field
+-- (a format that embeds no level), there is nothing to update and it's returned as-is.
 function ItemRack.UpdateIRString(itemRackID)
-	return (string.gsub(itemRackID or "", "^("..strrep("%d+:", 8)..")%d+:%d+", "%1"..UnitLevel("player")..":".."0")) --note: parenthesis to discard 2nd return value (number of substitutions, which will always be 1)
+	itemRackID = tostring(itemRackID or "")
+	local prefix, level, rest = string.match(itemRackID, "^("..strrep("[^:]*:", 8)..")([^:]*)(.*)")
+	if not prefix or level=="" then
+		return itemRackID
+	end
+	return prefix..UnitLevel("player")..rest
 end
 
 -- returns the provided ItemRack-style ID string with "item:" prepended, which turns it into a normal itemstring which we can then use for item lookups, itemlink generation and so on.
@@ -953,15 +993,15 @@ function ItemRack.FindItem(id,lock)
 	-- look for item in known items cache first (this cache is frequently rebuilt, such as when clicking the buttons to change a set, AS WELL as when the actual set change takes place, it's a bit overkill in fact, but at least it is up to date -- in fact the entire design is stupid. if the cache is ALWAYS rebuilt EVERY TIME a set change takes place, then the MANUAL search code further down will never take place unless the item is COMPLETELY MISSING. likewise, it means that we're constantly rebuilding a cache of ItemRack-style IDs, and then doing the EXACT same job AGAIN further down, in the "search for..." sections at the bottom of this function... bad design and lots of redundancy, heh. a better design would be to just search through our cache twice, first to look for an exact match, and then to look for a baseID match.)
 	local knownID = ItemRack.KnownItems[id]
 	if knownID then
-		local bag,slot = math.floor(knownID/100),mod(knownID,100)
-		if bag < 0 and not slot then
-			bag = bag*-1
-			if id==getid(bag) and (not lock or not locklist[-2][bag]) then
-				if lock then locklist[-2][bag]=1 end
-				return bag
+		if knownID <= 0 then -- worn equipment, stored as slot*-1 by PopulateKnownItems
+			local invslot = -knownID
+			if id==getid(invslot) and (not lock or not locklist[-2][invslot]) then
+				if lock then locklist[-2][invslot]=1 end
+				return invslot
 			end
-		elseif slot and slot > 0 then
-			if id==getid(bag,slot) and (not lock or not locklist[bag][slot]) then
+		else -- bag item, stored as bag*100+slot
+			local bag,slot = math.floor(knownID/100),mod(knownID,100)
+			if slot > 0 and id==getid(bag,slot) and (not lock or not locklist[bag][slot]) then
 				if lock then locklist[bag][slot]=1 end
 				return nil,bag,slot
 			end
@@ -1014,7 +1054,7 @@ function ItemRack.FindInBank(id,lock)
 		for _,i in pairs(ItemRack.BankSlots) do -- try to find an exact match at first
 			if ItemRack.ValidBag(i) then
 				for j=1,GetContainerNumSlots(i) do
-					if id==getid(i,j) and (not lock or locklist[i][j]) then
+					if id==getid(i,j) and (not lock or not locklist[i][j]) then
 						if lock then locklist[i][j]=1 end
 						return i,j
 					end
@@ -1114,7 +1154,7 @@ function ItemRack.PlayerCanWear(invslot,bag,slot)
 	ItemRackTooltip:SetBagItem(bag,slot)
 
 	for i=2,ItemRackTooltip:NumLines() do
-		txt = _G["ItemRackTooltipTextLeft"..i]:GetText()
+		txt = _G["ItemRackTooltipTextLeft"..i]:GetText() or ""
 		-- if either left or right text is red and this isn't a Durability x/x line, this item can't be worn
 		if (ItemRack.IsRed("Left"..i) or ItemRack.IsRed("Right"..i)) and not string.find(txt,ItemRack.DURABILITY_PATTERN) and not string.match(txt,ItemRack.REQUIRES_PATTERN) then
 			return nil
@@ -1383,8 +1423,8 @@ function ItemRack.BuildMenu(id,menuInclude,masqueGroup)
 			if not string.match(i,"^~") then --do not list internal sets, prefixed with ~
 				ItemRack.AddToMenu(i)
 			end
-			table.sort(ItemRack.Menu)
 		end
+		table.sort(ItemRack.Menu)
 	end
 	if showButtonMenu then
 		table.insert(ItemRack.Menu,"MENU")
@@ -1526,11 +1566,11 @@ function ItemRack.UpdateMenuCooldowns()
 end
 
 function ItemRack.WriteMenuCooldowns()
-	if ItemRackSettings.CooldownCount=="ON" and ItemRackMenuFrame:IsVisible() then
+	if ItemRackSettings.CooldownCount=="ON" and ItemRackMenuFrame:IsVisible() and ItemRack.menuOpen and ItemRack.menuOpen<20 then
 		local baseID
 		for i=1,#(ItemRack.Menu) do
-			baseID = ItemRack.GetIRString(ItemRack.Menu[i],true)
-			if baseID then
+			baseID = tonumber(ItemRack.GetIRString(ItemRack.Menu[i],true))
+			if baseID and baseID>0 then
 				ItemRack.WriteCooldown(_G["ItemRackMenu"..i.."Time"],GetItemCooldown(baseID))
 			else
 				_G["ItemRackMenu"..i.."Time"]:SetText("")
@@ -1688,7 +1728,10 @@ end
 
 function ItemRack.EquipItemByID(id,slot)
 	if not id then return end
-	if ItemRack.NowCasting or (not ItemRack.SlotInfo[slot].swappable and (UnitAffectingCombat("player") or ItemRack.IsPlayerReallyDead()) ) then
+	-- ALL equipment moves are protected for addon code in combat on this client
+	-- (cursor pickups and insecure EquipItemByName both fire ADDON_ACTION_BLOCKED),
+	-- so in combat or while dead everything queues for after combat
+	if ItemRack.NowCasting or InCombatLockdown() or UnitAffectingCombat("player") or ItemRack.IsPlayerReallyDead() then
 		ItemRack.AddToCombatQueue(slot,id)
 	elseif not GetCursorInfo() and not SpellIsTargeting() then
 		if id~=0 then -- not an empty slot
@@ -2072,13 +2115,11 @@ end
 
 --[[ Character sheet menus ]]
 
-ItemRack.oldPaperDollItemSlotButton_OnEnter = PaperDollItemSlotButton_OnEnter
-function PaperDollItemSlotButton_OnEnter(self)
-	ItemRack.oldPaperDollItemSlotButton_OnEnter(self)
+hooksecurefunc("PaperDollItemSlotButton_OnEnter",function(self)
 	if ItemRack.menuDockedTo~=self:GetName() and (ItemRackSettings.MenuOnShift=="OFF" or IsShiftKeyDown()) and ItemRackSettings.CharacterSheetMenus=="ON" then
 		ItemRack.DockMenuToCharacterSheet(self)
 	end
-end
+end)
 
 function ItemRack.DockMenuToCharacterSheet(self)
 	local name = self:GetName()
@@ -2307,22 +2348,29 @@ function ItemRack.SetSetBindings()
 				
 				-- Store the set name on the button for the click handler
 				button.setName = i
-				
-				-- Use PreClick to call our function (works outside combat)
+
+				-- PreClick runs the full EquipSet path in AND out of combat: out of combat
+				-- it performs the whole swap; in combat it can only queue, because ALL
+				-- equipment moves (weapons included) are protected for addon code in
+				-- combat on this client. The secure macrotext below is what actually
+				-- swaps weapons DURING combat — /equipslot runs in the protected
+				-- environment. It uses item:<id> (not the item name) so two different
+				-- items sharing a name can't mismatch, and no item-cache lookup is
+				-- needed at binding time. /stopmacro keeps it inert out of combat so
+				-- the two paths never fight over the same slots.
+				button:RegisterForClicks("AnyDown") -- down only: a keybind delivers both down and up clicks
 				button:SetScript("PreClick", function(self)
-					if not InCombatLockdown() then
-						ItemRack.RunSetBinding(self.setName)
-					end
+					ItemRack.RunSetBinding(self.setName)
 				end)
-				
-				-- For combat, set up macro to equip weapons directly
+
 				button:SetAttribute("type","macro")
-				local macrotext = ""
-				for slot = 16, 18 do
-					if ItemRackUser.Sets[i].equip and ItemRackUser.Sets[i].equip[slot] then
-						local name = GetItemInfo("item:"..ItemRackUser.Sets[i].equip[slot])
-						if name then
-							macrotext = macrotext .. "/equipslot " .. slot .. " " .. name .. "\n"
+				local macrotext = "/stopmacro [nocombat]\n"
+				local equip = ItemRackUser.Sets[i].equip
+				if equip then
+					for slot = 16, 18 do
+						local baseID = tonumber(ItemRack.GetIRString(equip[slot] or 0, true))
+						if baseID and baseID > 0 then
+							macrotext = macrotext .. "/equipslot " .. slot .. " item:" .. baseID .. "\n"
 						end
 					end
 				end
@@ -2446,7 +2494,7 @@ function ItemRack.GetBankedSet(setname)
 	local bag,slot,freeBag,freeSlot
 	ItemRack.ClearLockList()
 	for _,i in pairs(ItemRackUser.Sets[setname].equip) do
-		bag,slot = ItemRack.FindInBank(i)
+		bag,slot = ItemRack.FindInBank(i,1) -- lock so duplicate set items don't resolve to the same bank slot
 		if bag then
 			freeBag,freeSlot = ItemRack.FindSpace()
 			if freeBag then
@@ -2469,7 +2517,7 @@ function ItemRack.PutBankedSet(setname)
 		if i~=0 then
 			freeBag,freeSlot = ItemRack.FindBankSpace()
 			if freeBag then
-				inv,bag,slot = ItemRack.FindItem(i)
+				inv,bag,slot = ItemRack.FindItem(i,1) -- lock so duplicate set items don't resolve to the same source slot
 				if inv then
 					PickupInventoryItem(inv)
 				elseif bag then

@@ -248,7 +248,8 @@ function ItemRack.RegisterEvents()
 	local events = ItemRackEvents
 	local eventType
 	for eventName in pairs(enabled) do
-		eventType = events[eventName].Type
+		local ev = events[eventName]
+		eventType = ev and ev.Type
 		if eventType=="Buff" then
 			if not frame:IsEventRegistered("UNIT_AURA") then
 				frame:RegisterEvent("UNIT_AURA")
@@ -264,9 +265,17 @@ function ItemRack.RegisterEvents()
 			if not frame:IsEventRegistered("ZONE_CHANGED_INDOORS") then
 				frame:RegisterEvent("ZONE_CHANGED_INDOORS")
 			end
+			-- outdoor subzone changes only fire ZONE_CHANGED; without it, events
+			-- keyed on a subzone name never triggered outside raid interiors
+			if not frame:IsEventRegistered("ZONE_CHANGED") then
+				frame:RegisterEvent("ZONE_CHANGED")
+			end
 		elseif eventType=="Script" then
-			if not frame:IsEventRegistered(events[eventName].Trigger) then
-				frame:RegisterEvent(events[eventName].Trigger)
+			local trigger = ev.Trigger
+			-- pcall: an invalid event name in hand-edited saved data must not
+			-- abort registration of the remaining events
+			if trigger and trigger~="" and not frame:IsEventRegistered(trigger) then
+				pcall(frame.RegisterEvent, frame, trigger)
 			end
 		end
 	end
@@ -275,9 +284,14 @@ function ItemRack.RegisterEvents()
 		ItemRack.StartTimer("CheckForMountedEvents")
 	end
 
-	ItemRack.ProcessStanceEvent()
-	ItemRack.ProcessZoneEvent()
-	ItemRack.ProcessBuffEvent()
+	-- During login this initial sweep is deferred: zone text is still "" and
+	-- shapeshift forms aren't populated, which made Unequip-flagged zone/stance
+	-- sets strip at every login. OnEnterWorld sets the flag and re-runs us.
+	if ItemRack.EnteredWorld then
+		ItemRack.ProcessStanceEvent()
+		ItemRack.ProcessZoneEvent()
+		ItemRack.ProcessBuffEvent()
+	end
 end
 
 function ItemRack.ToggleEvents(self)
@@ -297,6 +311,8 @@ end
 
 --[[ Event processing ]]
 
+local compiledScripts = {} -- compiled Script-event chunks, keyed by script text
+
 function ItemRack.ProcessingFrameOnEvent(self,event,...)
 	local enabled = ItemRackUser.Events.Enabled
 	local events = ItemRackEvents
@@ -304,7 +320,7 @@ function ItemRack.ProcessingFrameOnEvent(self,event,...)
 	local arg1, arg2 = ...;
 
 	for eventName in pairs(enabled) do
-		eventType = events[eventName].Type
+		eventType = events[eventName] and events[eventName].Type
 		if event=="UNIT_AURA" and eventType=="Buff" and arg1=="player" then
 			startBuff = 1
 		elseif event=="UPDATE_SHAPESHIFT_FORM" and eventType=="Stance" then
@@ -313,9 +329,20 @@ function ItemRack.ProcessingFrameOnEvent(self,event,...)
 			startZone = 1
 		elseif event == "ZONE_CHANGED_INDOORS" and eventType == "Zone" and select(2, IsInInstance()) == "raid" then -- if player change subzone in raid instance, toggle set change, else not.
 			startZone = 1
+		elseif event=="ZONE_CHANGED" and eventType=="Zone" then -- outdoor subzone change (needed for subzone-keyed events)
+			startZone = 1
 		elseif eventType=="Script" and events[eventName].Trigger==event then
-			local method = loadstring(events[eventName].Script)
-			pcall(method, ...)
+			local script = events[eventName].Script
+			local method = compiledScripts[script]
+			if method == nil then
+				-- legacy scripts read the event args as arg1..arg5; the client no
+				-- longer provides those globals, so compile them in as locals
+				method = loadstring("local arg1,arg2,arg3,arg4,arg5 = ...; "..script) or false
+				compiledScripts[script] = method
+			end
+			if method then
+				pcall(method, ...)
+			end
 		end
 	end
 	if startStance then
@@ -331,7 +358,7 @@ end
 
 function ItemRack.GetStanceNumber(name)
 	if tonumber(name) then
-		return name
+		return tonumber(name) -- convert: a saved string "1" would never == GetShapeshiftForm()'s number
 	end
 	for i=1,GetNumShapeshiftForms() do
 		if name==select(2,GetShapeshiftFormInfo(i)) then
@@ -345,10 +372,14 @@ function ItemRack.ProcessStanceEvent()
 	local events = ItemRackEvents
 
 	local currentStance = GetShapeshiftForm()
-	local stance, setToEquip, setToUnequip, setname, skip
+	local stance, setname, skip
+	-- collect ALL matching events: keeping single variables meant that with two
+	-- simultaneously-matching events only the last one pairs() happened to
+	-- enumerate won — nondeterministic. All unequips run before all equips.
+	local setsToEquip, setsToUnequip = {},{}
 
 	for eventName in pairs(enabled) do
-		if events[eventName].Type=="Stance" then
+		if events[eventName] and events[eventName].Type=="Stance" then
 			skip = nil
 			if events[eventName].NotInPVP then
 				local _,instanceType = IsInInstance()
@@ -359,48 +390,74 @@ function ItemRack.ProcessStanceEvent()
 			if not skip then
 				stance = ItemRack.GetStanceNumber(events[eventName].Stance)
 				setname = ItemRackUser.Events.Set[eventName]
-				if stance==currentStance and not ItemRack.IsSetEquipped(setname) then
-					-- if this event is for this stance, then we'll want to equip this one
-					setToEquip = ItemRackUser.Events.Set[eventName]
-				end
-				if stance~=currentStance and events[eventName].Unequip and ItemRack.IsSetEquipped(setname) then
-					-- if this event is for last stance, then we'll want to unequip it
-					setToUnequip = ItemRackUser.Events.Set[eventName]
+				-- stance is nil when a named form can't be resolved (form data not
+				-- loaded yet, eg right after login): indeterminate, don't treat it
+				-- as "left the stance" and strip the set
+				if stance and setname then
+					if stance==currentStance and not ItemRack.IsSetEquipped(setname) then
+						-- if this event is for this stance, then we'll want to equip this one
+						table.insert(setsToEquip,setname)
+					elseif stance~=currentStance and events[eventName].Unequip and ItemRack.IsSetEquipped(setname) then
+						-- if this event is for last stance, then we'll want to unequip it
+						table.insert(setsToUnequip,setname)
+					end
 				end
 			end
 		end
 	end
-	if setToUnequip then
-		ItemRack.UnequipSet(setToUnequip)
+	for i=1,#setsToUnequip do
+		ItemRack.UnequipSet(setsToUnequip[i])
 	end
-	if setToEquip then
-		ItemRack.EquipSet(setToEquip)
+	for i=1,#setsToEquip do
+		ItemRack.EquipSet(setsToEquip[i])
 	end
 end
 
+local zoneRetryPending
 function ItemRack.ProcessZoneEvent()
 	local enabled = ItemRackUser.Events.Enabled
 	local events = ItemRackEvents
 
 	local currentZone = GetRealZoneText()
 	local currentSubZone = GetSubZoneText()
-	local setToEquip, setToUnequip, setname
+
+	if not currentZone or currentZone=="" then
+		-- zone info isn't available yet (fresh login or mid loading screen).
+		-- Treating this as "in no zone" wrongly unequipped Unequip-flagged sets;
+		-- retry shortly instead. (C_Timer rather than EventsZoneTimer: the timer
+		-- system stops a one-shot AFTER its callback, cancelling self re-arms.)
+		if not zoneRetryPending then
+			zoneRetryPending = true
+			C_Timer.After(0.3, function()
+				zoneRetryPending = nil
+				ItemRack.ProcessZoneEvent()
+			end)
+		end
+		return
+	end
+
+	local setname, inZone
+	-- collect ALL matching events (see ProcessStanceEvent); unequips before equips
+	local setsToEquip, setsToUnequip = {},{}
 
 	for eventName in pairs(enabled) do
-		if events[eventName].Type=="Zone" then
+		if events[eventName] and events[eventName].Type=="Zone" then
 			setname = ItemRackUser.Events.Set[eventName]
-			if (events[eventName].Zones[currentZone] or events[eventName].Zones[currentSubZone]) and not ItemRack.IsSetEquipped(setname) then
-				setToEquip = setname
-			elseif not (events[eventName].Zones[currentZone] or events[eventName].Zones[currentSubZone]) and events[eventName].Unequip and ItemRack.IsSetEquipped(setname) then
-				setToUnequip = setname
+			inZone = events[eventName].Zones[currentZone] or events[eventName].Zones[currentSubZone]
+			if setname then
+				if inZone and not ItemRack.IsSetEquipped(setname) then
+					table.insert(setsToEquip,setname)
+				elseif not inZone and events[eventName].Unequip and ItemRack.IsSetEquipped(setname) then
+					table.insert(setsToUnequip,setname)
+				end
 			end
 		end
 	end
-	if setToUnequip then
-		ItemRack.UnequipSet(setToUnequip)
+	for i=1,#setsToUnequip do
+		ItemRack.UnequipSet(setsToUnequip[i])
 	end
-	if setToEquip then
-		ItemRack.EquipSet(setToEquip)
+	for i=1,#setsToEquip do
+		ItemRack.EquipSet(setsToEquip[i])
 	end
 end
 
@@ -427,9 +484,13 @@ function ItemRack.ProcessBuffEvent()
 	local events = ItemRackEvents
 
 	local buff, setname, isSetEquipped, skip
+	-- collect ALL matching events (see ProcessStanceEvent); unequips before equips,
+	-- otherwise an unequip enumerated after an equip could restore old gear on top
+	-- of the set another buff event just equipped
+	local setsToEquip, setsToUnequip = {},{}
 
 	for eventName in pairs(enabled) do
-		if events[eventName].Type=="Buff" then
+		if events[eventName] and events[eventName].Type=="Buff" then
 			skip = nil
 			if events[eventName].NotInPVP then
 				local _,instanceType = IsInInstance()
@@ -450,14 +511,22 @@ function ItemRack.ProcessBuffEvent()
 					buff = AuraUtil.FindAuraByName(events[eventName].Buff,"player")
 				end
 				setname = ItemRackUser.Events.Set[eventName]
-				isSetEquipped = ItemRack.IsSetEquipped(setname)
-				if buff and not isSetEquipped then
-					ItemRack.EquipSet(setname)
-				elseif not buff and isSetEquipped and events[eventName].Unequip then
-					ItemRack.UnequipSet(setname)
+				if setname then -- an enabled event without a set would spam EquipSet(nil) on every aura change
+					isSetEquipped = ItemRack.IsSetEquipped(setname)
+					if buff and not isSetEquipped then
+						table.insert(setsToEquip,setname)
+					elseif not buff and isSetEquipped and events[eventName].Unequip then
+						table.insert(setsToUnequip,setname)
+					end
 				end
 			end
 		end
+	end
+	for i=1,#setsToUnequip do
+		ItemRack.UnequipSet(setsToUnequip[i])
+	end
+	for i=1,#setsToEquip do
+		ItemRack.EquipSet(setsToEquip[i])
 	end
 end
 

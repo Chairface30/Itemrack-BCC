@@ -1,4 +1,6 @@
 __ Unreleased - WoW Forever support - By Chairface Chippendale __
+* Fixed a load error on Forever ("UseItemByName is not a function") that stopped ItemRack starting up: tooltips, events and item-use tracking never switched on. It now hooks only what the client has, and C_Item.UseItemByName where the global is gone
+* Fixed the options' item delay box never being created ("Couldn't find relative frame: ItemRackOptItemStatsDelay"): it was marked as a template
 * Loads on WoW Forever through its own ItemRack.toc (interface 16001); TBC still loads ItemRack_TBC.toc and plays exactly as before
 * Forever: cooldown counts no longer error when the client keeps a cooldown secret - the number is left off, the swirl still shows
 * Forever: buff events leave your gear alone in combat, where every aura is hidden from addons, instead of reading "buff gone" and unequipping; the auto-queue's buff check does the same

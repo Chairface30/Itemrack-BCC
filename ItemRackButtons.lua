@@ -21,7 +21,9 @@ ItemRack.NewAnchor = nil
 function ItemRack.InitButtons()
 	ItemRackUser.Buttons = ItemRackUser.Buttons or {}
 
-	hooksecurefunc("PaperDollItemSlotButton_OnModifiedClick",ItemRack.newPaperDollItemSlotButton_OnModifiedClick)
+	if type(PaperDollItemSlotButton_OnModifiedClick) == "function" then
+		hooksecurefunc("PaperDollItemSlotButton_OnModifiedClick",ItemRack.newPaperDollItemSlotButton_OnModifiedClick)
+	end
 
 	if CharacterAmmoSlot then
 		ItemRack.oldCharacterAmmoSlot_OnClick = CharacterAmmoSlot:GetScript("OnClick")

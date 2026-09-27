@@ -842,10 +842,19 @@ function ItemRack.InitCore()
 		ItemRack.LockList[i] = {}
 	end
 
-	hooksecurefunc("UseInventoryItem",ItemRack.newUseInventoryItem)
-	hooksecurefunc("UseAction",ItemRack.newUseAction)
-	hooksecurefunc("UseItemByName",ItemRack.newUseItemByName)
-	hooksecurefunc("PaperDollFrame_OnShow",ItemRack.newPaperDollFrame_OnShow)
+	-- Hook only what this client has: WoW Forever has no global UseItemByName
+	-- (it lives in C_Item there), and a hook on a missing function throws
+	-- and stops the rest of InitCore - the tooltips and every event below.
+	local function HookGlobal(name, fn)
+		if type(_G[name]) == "function" then hooksecurefunc(name, fn) return true end
+	end
+	HookGlobal("UseInventoryItem",ItemRack.newUseInventoryItem)
+	HookGlobal("UseAction",ItemRack.newUseAction)
+	if not HookGlobal("UseItemByName",ItemRack.newUseItemByName)
+		and C_Item and type(C_Item.UseItemByName) == "function" then
+		hooksecurefunc(C_Item, "UseItemByName", ItemRack.newUseItemByName)
+	end
+	HookGlobal("PaperDollFrame_OnShow",ItemRack.newPaperDollFrame_OnShow)
 	hooksecurefunc(GameTooltip, "SetBagItem", ItemRack.OnSetBagItem)
 	hooksecurefunc(GameTooltip, "SetInventoryItem", ItemRack.OnSetInventoryItem)
 	hooksecurefunc(GameTooltip, "SetHyperlink", ItemRack.OnSetHyperlink)

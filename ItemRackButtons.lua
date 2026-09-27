@@ -1,4 +1,7 @@
 -- API Compatibility shims for TBC Anniversary Edition (January 2025+)
+-- WoW Forever has these only in C_Item; older clients have the globals.
+local GetItemCount = _G.GetItemCount or (C_Item and C_Item.GetItemCount)
+
 local LoadAddOn = LoadAddOn or (C_AddOns and C_AddOns.LoadAddOn)
 
 ItemRack.Docking = {} -- temporary table for current docking potential

@@ -1,4 +1,5 @@
 __ Unreleased - WoW Forever support - By Chairface Chippendale __
+* Fixed ItemRack not seeing any equipped or carried items on Forever ("attempt to call a nil value" in GetID, GetInfoByID, GetCountByID): Forever keeps GetItemInfo, GetItemCount, GetItemSpell, IsEquippableItem, GetItemFamily, GetItemQualityColor and GetItemCooldown in C_Item only, and ItemRack now uses those where the old globals are gone
 * Opening the options no longer errors on Forever: the set icon list tries the macro icon list first and falls back safely, since Forever's icon provider is broken
 * The "<name>'s Settings" header shrinks its font to fit a long two-word name
 * Fixed a load error on Forever ("UseItemByName is not a function") that stopped ItemRack starting up: tooltips, events and item-use tracking never switched on. It now hooks only what the client has, and C_Item.UseItemByName where the global is gone

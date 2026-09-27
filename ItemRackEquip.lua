@@ -1,11 +1,14 @@
 -- ItemRackEquip.lua : ItemRack.EquipSet and its supporting functions.
+-- WoW Forever has these only in C_Item; older clients have the globals.
+local GetItemInfo = _G.GetItemInfo or (C_Item and C_Item.GetItemInfo)
+
 local GetContainerNumSlots, GetContainerItemLink, GetContainerItemID, GetContainerItemCooldown, GetContainerItemInfo, GetItemCooldown, PickupContainerItem, ContainerIDToInventoryID
 if C_Container then
 	GetContainerNumSlots = C_Container.GetContainerNumSlots
 	GetContainerItemLink = C_Container.GetContainerItemLink
 	GetContainerItemID = C_Container.GetContainerItemID
 	GetContainerItemCooldown = C_Container.GetContainerItemCooldown
-	GetItemCooldown = C_Container.GetItemCooldown
+	GetItemCooldown = C_Container.GetItemCooldown or (C_Item and C_Item.GetItemCooldown) or _G.GetItemCooldown
 	PickupContainerItem = C_Container.PickupContainerItem
 	ContainerIDToInventoryID = C_Container.ContainerIDToInventoryID
 	GetContainerItemInfo = function(bag, slot)

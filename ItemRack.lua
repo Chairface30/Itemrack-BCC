@@ -3,6 +3,12 @@ _G[addonName] = addon
 
 local _
 
+-- WoW Forever has these only in C_Item; older clients have the globals.
+local GetItemInfo = _G.GetItemInfo or (C_Item and C_Item.GetItemInfo)
+local GetItemCount = _G.GetItemCount or (C_Item and C_Item.GetItemCount)
+local IsEquippableItem = _G.IsEquippableItem or (C_Item and C_Item.IsEquippableItem)
+local GetItemFamily = _G.GetItemFamily or (C_Item and C_Item.GetItemFamily)
+
 local wowver, wowbuild, wowbuilddate, wowtoc = GetBuildInfo()
 
 -- API Compatibility shims for TBC Anniversary Edition (January 2025+)
@@ -148,7 +154,7 @@ if C_Container then
 	GetContainerItemLink = C_Container.GetContainerItemLink
 	GetContainerItemID = C_Container.GetContainerItemID
 	GetContainerItemCooldown = C_Container.GetContainerItemCooldown
-	GetItemCooldown = C_Container.GetItemCooldown
+	GetItemCooldown = C_Container.GetItemCooldown or (C_Item and C_Item.GetItemCooldown) or _G.GetItemCooldown
 	PickupContainerItem = C_Container.PickupContainerItem
 	ContainerIDToInventoryID = C_Container.ContainerIDToInventoryID
 	GetContainerItemInfo = function(bag, slot)

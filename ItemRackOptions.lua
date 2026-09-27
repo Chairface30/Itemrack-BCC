@@ -1,5 +1,8 @@
 local _
 
+-- WoW Forever has these only in C_Item; older clients have the globals.
+local GetItemQualityColor = _G.GetItemQualityColor or (C_Item and C_Item.GetItemQualityColor)
+
 ItemRackOpt = {
 	Icons = {}, -- list of all icons possible for a set
 	Inv = {}, -- 0-19 currently chosen items per slot

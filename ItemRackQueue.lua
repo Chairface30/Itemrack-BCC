@@ -1,6 +1,10 @@
 -- ItemRackQueue.lua
 local _
-local GetItemCooldown = _G.GetItemCooldown or C_Container.GetItemCooldown
+-- WoW Forever has these only in C_Item; older clients have the globals.
+local GetItemCount = _G.GetItemCount or (C_Item and C_Item.GetItemCount)
+local GetItemSpell = _G.GetItemSpell or (C_Item and C_Item.GetItemSpell)
+
+local GetItemCooldown = _G.GetItemCooldown or (C_Item and C_Item.GetItemCooldown) or (C_Container and C_Container.GetItemCooldown)
 
 function ItemRack.PeriodicQueueCheck()
 	if SpellIsTargeting() then

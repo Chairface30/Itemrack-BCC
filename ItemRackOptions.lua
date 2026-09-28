@@ -483,11 +483,19 @@ function ItemRackOpt.PopulateInitialIcons()
 			for i=1,#GetMacroIcons(MACRO_ICON_FILENAMES) do add(GetSpellorMacroIconInfo(i)) end
 		end,
 		function() -- newer clients
-			if not (IconDataProviderMixin and CreateAndInitFromMixin) then return end
-			local iconProvider = CreateAndInitFromMixin(IconDataProviderMixin, IconDataProviderExtraType.Spell)
-			if iconProvider then
-				for i=1, iconProvider:GetNumIcons() do add(iconProvider:GetIconByIndex(i)) end
-				iconProvider:Release()
+			-- The same four lists Blizzard's IconDataProvider reads, asked for
+			-- directly. The provider itself must not be used from here: it
+			-- keeps its icon list and user count in variables shared by every
+			-- caller, so creating one from addon code taints them, and the
+			-- next Blizzard panel to use one (the nameplate preview in
+			-- Options > Advanced) runs tainted and errors on secret values.
+			local spells, items = {}, {}
+			for _, fill in ipairs({ {GetLooseMacroIcons, spells}, {GetMacroIcons, spells},
+			                        {GetLooseMacroItemIcons, items}, {GetMacroItemIcons, items} }) do
+				if type(fill[1]) == "function" then pcall(fill[1], fill[2]) end
+			end
+			for _, list in ipairs({ spells, items }) do
+				for _, texture in ipairs(list) do add(tonumber(texture) or texture) end
 			end
 		end,
 	}

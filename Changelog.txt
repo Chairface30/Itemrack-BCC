@@ -1,3 +1,6 @@
+__ Unreleased __
+* Fixed errors in the game's Options > Advanced list ("attempt to compare a secret number value (execution tainted by 'ItemRack')" from the nameplate preview, while scrolling or hovering checkboxes). The set icon list was built with Blizzard's icon provider, whose shared state then counted as ItemRack's; it now reads the same icon lists directly
+
 __ New in 6.0.1 - WoW Forever - By Chairface Chippendale __
 * Fixed an error at login on Forever ("Usage: SaveBindings(1||2)" in SetSetBindings): the client reports binding set 0 until key bindings have loaded. Set hotkeys now work straight away, and ItemRack retries the save once bindings are ready
 

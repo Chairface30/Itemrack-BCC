@@ -2408,55 +2408,56 @@ function ItemRack.SetSetBindings()
 		ItemRack.Print("Cannot save hotkeys in combat, please try again out of combat!")
 		return
 	end
-	if retryCount > 3 then return end
+	local buttonName,button
+	for i in pairs(ItemRackUser.Sets) do
+		if ItemRackUser.Sets[i].key then
+			buttonName = ItemRack.BindingPrefix()..i
+			button = _G[buttonName] or CreateFrame("Button",buttonName,nil,"SecureActionButtonTemplate")
+			
+			-- Store the set name on the button for the click handler
+			button.setName = i
+
+			-- PreClick runs the full EquipSet path in AND out of combat: out of combat
+			-- it performs the whole swap; in combat it can only queue, because ALL
+			-- equipment moves (weapons included) are protected for addon code in
+			-- combat on this client. The secure macrotext below is what actually
+			-- swaps weapons DURING combat — /equipslot runs in the protected
+			-- environment. It uses item:<id> (not the item name) so two different
+			-- items sharing a name can't mismatch, and no item-cache lookup is
+			-- needed at binding time. /stopmacro keeps it inert out of combat so
+			-- the two paths never fight over the same slots.
+			button:RegisterForClicks("AnyDown") -- down only: a keybind delivers both down and up clicks
+			button:SetScript("PreClick", function(self)
+				ItemRack.RunSetBinding(self.setName)
+			end)
+
+			button:SetAttribute("type","macro")
+			local macrotext = "/stopmacro [nocombat]\n"
+			local equip = ItemRackUser.Sets[i].equip
+			if equip then
+				for slot = 16, 18 do
+					local baseID = tonumber(ItemRack.GetIRString(equip[slot] or 0, true))
+					if baseID and baseID > 0 then
+						macrotext = macrotext .. "/equipslot " .. slot .. " item:" .. baseID .. "\n"
+					end
+				end
+			end
+			button:SetAttribute("macrotext", macrotext)
+			SetBindingClick(ItemRackUser.Sets[i].key,buttonName)
+		end
+	end
+	-- 0 (or nil) means the client hasn't loaded key bindings yet at login, and
+	-- SaveBindings only takes 1 or 2: keep the click bindings live for this
+	-- session and retry the save a few times
 	local bindingSet = GetCurrentBindingSet()
-	if not bindingSet then
+	if bindingSet == 1 or bindingSet == 2 then
+		SaveBindings(bindingSet)
+		retryCount = 0
+	elseif retryCount < 4 then
 		retryCount = retryCount + 1
 		C_Timer.After(5, function()
 			ItemRack.SetSetBindings()
 		end)
-		return
-	else
-		local buttonName,button
-		for i in pairs(ItemRackUser.Sets) do
-			if ItemRackUser.Sets[i].key then
-				buttonName = ItemRack.BindingPrefix()..i
-				button = _G[buttonName] or CreateFrame("Button",buttonName,nil,"SecureActionButtonTemplate")
-				
-				-- Store the set name on the button for the click handler
-				button.setName = i
-
-				-- PreClick runs the full EquipSet path in AND out of combat: out of combat
-				-- it performs the whole swap; in combat it can only queue, because ALL
-				-- equipment moves (weapons included) are protected for addon code in
-				-- combat on this client. The secure macrotext below is what actually
-				-- swaps weapons DURING combat — /equipslot runs in the protected
-				-- environment. It uses item:<id> (not the item name) so two different
-				-- items sharing a name can't mismatch, and no item-cache lookup is
-				-- needed at binding time. /stopmacro keeps it inert out of combat so
-				-- the two paths never fight over the same slots.
-				button:RegisterForClicks("AnyDown") -- down only: a keybind delivers both down and up clicks
-				button:SetScript("PreClick", function(self)
-					ItemRack.RunSetBinding(self.setName)
-				end)
-
-				button:SetAttribute("type","macro")
-				local macrotext = "/stopmacro [nocombat]\n"
-				local equip = ItemRackUser.Sets[i].equip
-				if equip then
-					for slot = 16, 18 do
-						local baseID = tonumber(ItemRack.GetIRString(equip[slot] or 0, true))
-						if baseID and baseID > 0 then
-							macrotext = macrotext .. "/equipslot " .. slot .. " item:" .. baseID .. "\n"
-						end
-					end
-				end
-				button:SetAttribute("macrotext", macrotext)
-				SetBindingClick(ItemRackUser.Sets[i].key,buttonName)
-			end
-		end
-		SaveBindings(bindingSet)
-		retryCount = 0
 	end
 end
 

@@ -1,3 +1,6 @@
+__ Unreleased __
+* Fixed an error at login on Forever ("Usage: SaveBindings(1||2)" in SetSetBindings): the client reports binding set 0 until key bindings have loaded. Set hotkeys now work straight away, and ItemRack retries the save once bindings are ready
+
 __ New in 6.0 - WoW Forever - By Chairface Chippendale __
 * Fixed a repeating error while an ItemRack menu is open on Forever ("attempt to call a nil value" in MenuMouseover): MouseIsOver is gone from newer clients, and ItemRack now uses the frame's own IsMouseOver there
 * Fixed ItemRack not seeing any equipped or carried items on Forever ("attempt to call a nil value" in GetID, GetInfoByID, GetCountByID): Forever keeps GetItemInfo, GetItemCount, GetItemSpell, IsEquippableItem, GetItemFamily, GetItemQualityColor and GetItemCooldown in C_Item only, and ItemRack now uses those where the old globals are gone

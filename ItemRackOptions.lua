@@ -1200,7 +1200,7 @@ function ItemRackOpt.SetKeyBinding()
 		SetBindingClick(ItemRackOpt.Binding.keyPressed, ItemRackOpt.Binding.buttonName, "LeftButton")
 
 		local bindingSet = GetCurrentBindingSet()
-		if bindingSet then
+		if bindingSet == 1 or bindingSet == 2 then
 			SaveBindings(bindingSet)
 		end
 	end

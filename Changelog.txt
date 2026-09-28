@@ -1,4 +1,4 @@
-__ Unreleased __
+__ New in 6.0.1 - WoW Forever - By Chairface Chippendale __
 * Fixed an error at login on Forever ("Usage: SaveBindings(1||2)" in SetSetBindings): the client reports binding set 0 until key bindings have loaded. Set hotkeys now work straight away, and ItemRack retries the save once bindings are ready
 
 __ New in 6.0 - WoW Forever - By Chairface Chippendale __

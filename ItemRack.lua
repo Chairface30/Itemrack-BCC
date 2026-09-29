@@ -441,9 +441,19 @@ local loader = CreateFrame("Frame") -- need a new temp frame here, ItemRackFrame
 loader:RegisterEvent("PLAYER_LOGIN")
 loader:SetScript("OnEvent", ItemRack.OnPlayerLogin)
 
+-- Whether the player is casting or channelling. Classic clients have the
+-- CastingInfo/ChannelInfo shortcuts; WoW Forever has only the Unit* versions
+-- (calling the missing shortcut on a War Stomp was "attempt to call a nil
+-- value"). The player's own cast is readable there, even in combat.
+local function PlayerCasting()
+	local casting = CastingInfo or function() return UnitCastingInfo("player") end
+	local channel = ChannelInfo or function() return UnitChannelInfo("player") end
+	return (casting() or channel()) and true or false
+end
+
 function ItemRack.OnCastingStart(self,event,unit)
 	if unit=="player" then
-		if CastingInfo() or ChannelInfo() then
+		if PlayerCasting() then
 			ItemRack.NowCasting = true
 		end
 	end

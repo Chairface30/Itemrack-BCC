@@ -1,3 +1,6 @@
+__ Unreleased __
+* Fixed an error when you cast on Forever ("attempt to call a nil value" in OnCastingStart, e.g. after War Stomp): Forever has no CastingInfo/ChannelInfo shortcuts, so ItemRack now asks UnitCastingInfo/UnitChannelInfo there. Unchanged on TBC
+
 __ New in 6.0.2 - WoW Forever - By Chairface Chippendale __
 * Fixed errors in the game's Options > Advanced list ("attempt to compare a secret number value (execution tainted by 'ItemRack')" from the nameplate preview, while scrolling or hovering checkboxes). The set icon list was built with Blizzard's icon provider, whose shared state then counted as ItemRack's; it now reads the same icon lists directly
 

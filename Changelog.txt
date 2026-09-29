@@ -1,4 +1,4 @@
-__ Unreleased __
+__ New in 6.0.3 - WoW Forever - By Chairface Chippendale __
 * Fixed an error when you cast on Forever ("attempt to call a nil value" in OnCastingStart, e.g. after War Stomp): Forever has no CastingInfo/ChannelInfo shortcuts, so ItemRack now asks UnitCastingInfo/UnitChannelInfo there. Unchanged on TBC
 
 __ New in 6.0.2 - WoW Forever - By Chairface Chippendale __

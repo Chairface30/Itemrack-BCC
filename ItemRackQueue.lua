@@ -3,6 +3,7 @@ local _
 -- WoW Forever has these only in C_Item; older clients have the globals.
 local GetItemCount = _G.GetItemCount or (C_Item and C_Item.GetItemCount)
 local GetItemSpell = _G.GetItemSpell or (C_Item and C_Item.GetItemSpell)
+local IsEquippedItem = _G.IsEquippedItem or (C_Item and C_Item.IsEquippedItem)
 
 local GetItemCooldown = _G.GetItemCooldown or (C_Item and C_Item.GetItemCooldown) or (C_Container and C_Container.GetItemCooldown)
 
@@ -74,7 +75,9 @@ function ItemRack.ProcessAutoQueue(slot)
 		else
 			if not ready or enable==0 or (ItemRackItems[candidate] and ItemRackItems[candidate].priority) then
 				if ItemRack.ItemNearReady(candidate) then
-					if GetItemCount(candidate)>0 and not IsEquippedItem(candidate) then
+					-- (a client with no IsEquippedItem at all: the slot's own item was
+					-- already ruled out above, so the candidate counts as not worn)
+					if GetItemCount(candidate)>0 and not (IsEquippedItem and IsEquippedItem(candidate)) then
 						_,bag = ItemRack.FindItem(list[i])
 						if bag then
 							if ItemRack.CombatQueue[slot]~=list[i] then

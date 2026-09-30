@@ -372,6 +372,8 @@ function ItemRack.ProcessStanceEvent()
 	local events = ItemRackEvents
 
 	local currentStance = GetShapeshiftForm()
+	-- A form the client keeps secret can't be compared: leave the sets as they are
+	if ItemRack.IsSecret(currentStance) then return end
 	local stance, setname, skip
 	-- collect ALL matching events: keeping single variables meant that with two
 	-- simultaneously-matching events only the last one pairs() happened to
@@ -462,9 +464,9 @@ function ItemRack.ProcessZoneEvent()
 end
 
 --here we observe mounted status and raise an event should it change. UNIT_AURA event seems unreliable for this
-local _lastStateMounted = IsMounted() and not UnitOnTaxi("player")
+local _lastStateMounted = ItemRack.Mounted()
 function ItemRack.CheckForMountedEvents()
-	if UnitIsDeadOrGhost("player") then
+	if ItemRack.Flag(UnitIsDeadOrGhost("player")) then
 		return
 	end
 
@@ -472,7 +474,10 @@ function ItemRack.CheckForMountedEvents()
 		return
 	end
 
-	local isPlayerMounted = IsMounted() and not UnitOnTaxi("player")
+	local isPlayerMounted = ItemRack.Mounted()
+	if isPlayerMounted == nil then
+		return -- the client won't say: keep what was last known
+	end
 	if isPlayerMounted ~= _lastStateMounted then
 		_lastStateMounted = isPlayerMounted
 		ItemRack.ProcessBuffEvent()
@@ -507,7 +512,8 @@ function ItemRack.ProcessBuffEvent()
 			if not skip then
 				local known = true
 				if events[eventName].Anymount then
-					buff = IsMounted() and not UnitOnTaxi("player")
+					buff = ItemRack.Mounted()
+					known = buff ~= nil
 				else
 					-- Unreadable in combat on Forever: leave this set alone until
 					-- the buffs can be seen again.

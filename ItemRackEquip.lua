@@ -213,7 +213,7 @@ function ItemRack.EquipSet(setname)
 	-- so not even weapons can swap from Lua here. In-combat weapon swapping happens
 	-- via the secure "/equipslot" macrotext on the set keybind buttons
 	-- (SetSetBindings); everything routed through here waits for combat end.
-	if InCombatLockdown() or UnitAffectingCombat("player") or ItemRack.IsPlayerReallyDead() then
+	if ItemRack.InCombat() or ItemRack.IsPlayerReallyDead() then
 		local queued
 		for i in pairs(swap) do
 			-- assign directly instead of AddToCombatQueue: its same-id toggle
@@ -505,7 +505,7 @@ function ItemRack.MoveItem(fromBag,fromSlot,toBag,toSlot)
 	-- (verified in-game; only the secure keybind macro may equip weapons in
 	-- combat). EquipSet queues before reaching here, but if combat began while a
 	-- swap was already in flight, degrade gracefully: queue instead of erroring.
-	if (InCombatLockdown() or UnitAffectingCombat("player")) and (not fromSlot or not toSlot) then
+	if ItemRack.InCombat() and (not fromSlot or not toSlot) then
 		if not toSlot then
 			local invslot = (toBag == INVSLOT_AMMO) and INVSLOT_RANGED or toBag
 			ItemRack.CombatQueue[invslot] = ItemRack.GetID(fromBag,fromSlot)

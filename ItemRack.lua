@@ -39,6 +39,37 @@ function ItemRack.Num(value)
 	if ok and n == n then return n end
 end
 
+-- Whether the client keeps a value secret.
+function ItemRack.IsSecret(value)
+	if issecretvalue then
+		local ok, secret = pcall(issecretvalue, value)
+		if ok then return secret and true or false end
+	end
+	return false
+end
+
+-- A yes/no from the client, safe to test. On Forever these can be secret in
+-- combat, even about yourself, and testing a secret throws: a secret reads as
+-- ifSecret. On other clients this is the plain answer as true or false.
+function ItemRack.Flag(value, ifSecret)
+	if ItemRack.IsSecret(value) then return ifSecret and true or false end
+	return value and true or false
+end
+
+-- In combat, by the lockdown or by the unit flag. A secret flag means combat:
+-- that is when the client keeps it secret.
+function ItemRack.InCombat()
+	return InCombatLockdown() or ItemRack.Flag(UnitAffectingCombat("player"), true)
+end
+
+-- Mounted and not on a flight path: true or false, or nil when the client
+-- won't say.
+function ItemRack.Mounted()
+	local mounted, taxi = IsMounted(), UnitOnTaxi("player")
+	if ItemRack.IsSecret(mounted) or ItemRack.IsSecret(taxi) then return nil end
+	return (mounted and not taxi) and true or false
+end
+
 -- start, duration, enable from any cooldown call, usable in math. A secret
 -- cooldown reads as none (0, 0): the cooldown swirl, drawn by the client
 -- from the raw values, still shows it.
@@ -52,7 +83,7 @@ end
 -- so "no buff" then would look like the buff falling off. Returns
 -- (known, found): known is false while auras cannot be read.
 function ItemRack.FindBuff(name)
-	if ItemRack.IsForever and (InCombatLockdown() or UnitAffectingCombat("player")) then return false end
+	if ItemRack.IsForever and ItemRack.InCombat() then return false end
 	local ok, found = pcall(AuraUtil.FindAuraByName, name, "player")
 	if not ok then return false end
 	local readable = pcall(function() return found == found and (found == nil or found .. "") end)
@@ -995,7 +1026,11 @@ function ItemRack.UpdateIRString(itemRackID)
 	if not prefix or level=="" then
 		return itemRackID
 	end
-	return prefix..UnitLevel("player")..rest
+	local playerLevel = ItemRack.Num(UnitLevel("player"))
+	if not playerLevel then
+		return itemRackID -- the client won't say: leave the ID as it was saved
+	end
+	return prefix..playerLevel..rest
 end
 
 -- returns the provided ItemRack-style ID string with "item:" prepended, which turns it into a normal itemstring which we can then use for item lookups, itemlink generation and so on.
@@ -1817,7 +1852,7 @@ function ItemRack.EquipItemByID(id,slot)
 	-- ALL equipment moves are protected for addon code in combat on this client
 	-- (cursor pickups and insecure EquipItemByName both fire ADDON_ACTION_BLOCKED),
 	-- so in combat or while dead everything queues for after combat
-	if ItemRack.NowCasting or InCombatLockdown() or UnitAffectingCombat("player") or ItemRack.IsPlayerReallyDead() then
+	if ItemRack.NowCasting or ItemRack.InCombat() or ItemRack.IsPlayerReallyDead() then
 		ItemRack.AddToCombatQueue(slot,id)
 	elseif not GetCursorInfo() and not SpellIsTargeting() then
 		if id~=0 then -- not an empty slot
@@ -1903,8 +1938,10 @@ end
 --[[ Combat queue ]]
 
 function ItemRack.IsPlayerReallyDead()
-	local dead = UnitIsDeadOrGhost("player")
-	if UnitIsFeignDeath("player") then
+	-- (a secret answer reads as alive: it is only secret in combat, where
+	-- everything queues anyway)
+	local dead = ItemRack.Flag(UnitIsDeadOrGhost("player"))
+	if ItemRack.Flag(UnitIsFeignDeath("player")) then
 		dead = false
 	end
 	return dead

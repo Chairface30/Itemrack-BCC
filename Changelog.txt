@@ -1,4 +1,4 @@
-__ Unreleased __
+__ New in 6.0.4 - WoW Forever - By Chairface Chippendale __
 * Forever: hovering a gear slot with the bank open no longer errors ("bad argument #1 to 'pairs'" in BuildMenu). Forever's bank is the newer bank tabs, which ItemRack had no list for; it now finds items in, and puts them into, your bank tabs. Unchanged on TBC
 * Forever: the auto-queue no longer errors looking for a replacement item ("attempt to call a nil value": IsEquippedItem is only in C_Item there)
 * Forever: the "ready soon" and "ready" cooldown notices no longer error with the game's floating combat text switched on (CombatText_AddMessage is gone there); they go to the error frame instead

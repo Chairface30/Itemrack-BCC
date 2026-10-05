@@ -283,7 +283,20 @@ ItemRack.NoTitansGrip = {
 
 ItemRack.Menu = {}
 ItemRack.LockList = {} -- index -2 to 11, flag whether item is tagged already for swap
-if ItemRack.IsClassic() then
+ItemRack.BankTabs = {} -- bag ID -> 1 for each Forever bank tab
+if ItemRack.IsForever then
+	-- Forever's bank is the newer character bank tabs, not a main bank (-1)
+	-- plus bank bags; with no list here, opening the bank broke every menu
+	ItemRack.BankSlots = {}
+	local index = Enum and Enum.BagIndex
+	for n=1,9 do
+		local bag = index and index["CharacterBankTab_"..n]
+		if bag then
+			table.insert(ItemRack.BankSlots,bag)
+			ItemRack.BankTabs[bag] = 1
+		end
+	end
+elseif ItemRack.IsClassic() then
 	ItemRack.BankSlots = { -1,5,6,7,8,9,10 }
 elseif ItemRack.IsBCC() or ItemRack.IsWrath() or ItemRack.IsCata() then
 	ItemRack.BankSlots = { -1,5,6,7,8,9,10,11 }
@@ -888,6 +901,9 @@ function ItemRack.InitCore()
 	for i=-2,11 do
 		ItemRack.LockList[i] = {}
 	end
+	for bag in pairs(ItemRack.BankTabs) do -- Forever bank tabs can sit past 11
+		ItemRack.LockList[bag] = ItemRack.LockList[bag] or {}
+	end
 
 	-- Hook only what this client has: WoW Forever has no global UseItemByName
 	-- (it lives in C_Item there), and a hook on a missing function throws
@@ -1190,7 +1206,7 @@ end
 -- returns true if the bagid (0-4) is a normal "Container", as opposed to quivers and ammo pouches
 function ItemRack.ValidBag(bagid)
 	local baseID,bagtype
-	if bagid==0 or bagid==-1 then
+	if bagid==0 or bagid==-1 or ItemRack.BankTabs[bagid] then -- a bank tab is no bag item
 		return 1
 	else
 		local invID = ContainerIDToInventoryID(bagid)
@@ -1208,9 +1224,9 @@ function ItemRack.ValidBag(bagid)
 end
 
 function ItemRack.ClearLockList() -- this function is called very frequently, such as every time you click a set popup button to change the current set, AS WELL as when the actual set change takes place, and will call PopulateKnownItems in order to re-build the cache of current item locations and their itemstrings
-	for i=-2,11 do
-		for j in pairs(ItemRack.LockList[i]) do
-			ItemRack.LockList[i][j] = nil
+	for _,list in pairs(ItemRack.LockList) do
+		for j in pairs(list) do
+			list[j] = nil
 		end
 	end
 	if ItemRack.LocksHaveChanged then

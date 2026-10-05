@@ -1,4 +1,5 @@
 __ Unreleased __
+* Forever: hovering a gear slot with the bank open no longer errors ("bad argument #1 to 'pairs'" in BuildMenu). Forever's bank is the newer bank tabs, which ItemRack had no list for; it now finds items in, and puts them into, your bank tabs. Unchanged on TBC
 * Forever: the auto-queue no longer errors looking for a replacement item ("attempt to call a nil value": IsEquippedItem is only in C_Item there)
 * Forever: the "ready soon" and "ready" cooldown notices no longer error with the game's floating combat text switched on (CombatText_AddMessage is gone there); they go to the error frame instead
 * Forever: in combat the client can keep yes/no answers about your own character secret (in combat, dead, feigning death, mounted, on a flight path, your form), and testing one is an error. ItemRack now reads them safely: a hidden "in combat" counts as in combat, so gear changes queue as they should; a hidden mount or form state leaves your sets as they are until it can be read again. Unchanged on TBC
